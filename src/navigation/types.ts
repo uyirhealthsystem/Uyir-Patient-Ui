@@ -1,6 +1,10 @@
 import type { NavigatorScreenParams } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import type { FamilyMember, LoginChallenge } from "../api/types";
+import type { LoginChallenge } from "../features/auth/types";
+import type { FamilyMember } from "../features/profile/types";
+import type { MedicalKind } from "../features/records/api";
+
+export type { MedicalKind };
 
 export type AuthStackParams = {
   Login: undefined;
@@ -9,7 +13,6 @@ export type AuthStackParams = {
   ForgotPassword: { email?: string } | undefined;
 };
 
-export type MedicalKind = "conditions" | "allergies" | "medications" | "vitals";
 
 export type AppStackParams = {
   Tabs: NavigatorScreenParams<TabParams> | undefined;

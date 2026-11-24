@@ -1,34 +1,29 @@
 import { useFocusEffect } from "@react-navigation/native";
 import * as Location from "expo-location";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { errorMessage } from "../api/client";
+import { useCallback, useRef, useState } from "react";
+import { errorMessage } from "../services/http";
 
-/** Load data, reload when the screen regains focus, expose refresh state. */
-export function useLoad<T>(loader: () => Promise<T>, deps: unknown[] = [], { onFocus = true } = {}) {
-  const [data, setData] = useState<T | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+/** The parts of an RTK Query hook result a screen needs. */
+interface QueryResult<T> {
+  data?: T;
+  /** Result for the current argument only (undefined while a new argument loads). */
+  currentData?: T;
+  error?: unknown;
+  isLoading: boolean;
+  isFetching: boolean;
+  refetch: () => unknown;
+}
+
+/**
+ * Adapts an RTK Query result for a screen: a message instead of an error
+ * object, pull-to-refresh state, and a silent refetch when the screen
+ * regains focus (RTK Query only knows about app focus).
+ */
+export function useScreenQuery<T>(q: QueryResult<T>, { onFocus = true } = {}) {
   const [refreshing, setRefreshing] = useState(false);
-  const loaderRef = useRef(loader);
-  loaderRef.current = loader;
+  const refetchRef = useRef(q.refetch);
+  refetchRef.current = q.refetch;
   const first = useRef(true);
-
-  const run = useCallback(async (mode: "initial" | "refresh" | "silent") => {
-    if (mode === "refresh") setRefreshing(true);
-    if (mode === "initial") setLoading(true);
-    try {
-      setData(await loaderRef.current());
-      setError(null);
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => void run("initial"), deps);
 
   useFocusEffect(
     useCallback(() => {
@@ -36,11 +31,33 @@ export function useLoad<T>(loader: () => Promise<T>, deps: unknown[] = [], { onF
         first.current = false;
         return;
       }
-      if (onFocus) void run("silent");
-    }, [onFocus, run]),
+      if (!onFocus) return;
+      try {
+        refetchRef.current();
+      } catch {
+        // query not started (skipped): nothing to refetch
+      }
+    }, [onFocus]),
   );
 
-  return { data, setData, error, loading, refreshing, refresh: () => run("refresh"), reload: () => run("silent") };
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refetchRef.current();
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
+  return {
+    data: q.currentData ?? null,
+    error: q.error ? errorMessage(q.error) : null,
+    // First load, or a new argument (another member, filter...) still loading.
+    loading: q.isLoading || (q.isFetching && q.currentData === undefined && !q.error),
+    fetching: q.isFetching,
+    refreshing,
+    refresh,
+  };
 }
 
 /** Run an action with a busy flag and an error message. */
