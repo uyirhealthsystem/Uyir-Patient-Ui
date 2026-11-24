@@ -17,28 +17,43 @@ npm run typecheck
 
 authservice portal `patient-app` (PATIENT, auto-approved). Email + password, then the emailed 6-digit login code when login OTP is on. The refresh token comes back in the JSON body and is kept in `expo-secure-store`. A 401 rotates it once (`/token/refresh`) and retries the request. After sign-in, `GET /api/v1/users/me` → `404 PROFILE_REQUIRED` sends the user to onboarding (`POST /api/v1/users/me` with privacy consent).
 
-## APIs used (all in `src/api/endpoints.ts`)
+## APIs used (each feature's `src/features/<name>/api.ts`)
 
 | Service | Endpoints |
 |---|---|
 | auth `/api/v1/auth` | email/register, email/login, login/verify, login/resend, token/refresh, logout, logout-all, password/forgot, password/reset |
 | users `/api/v1/users` | me (get/onboard/erase), me/profile (put), family-members CRUD, medical/{conditions,allergies,medications,vitals} CRUD, health-records, medical-history, abha + ABHA creation (consents, aadhaar/mobile OTP, address) |
 | hospital `/api/v1/hospital` | search, nearby, by id, specialties, doctors/search, doctors/:id, emergency-conditions, emergency-sos, emergency-bookings (create, cancel, history), doctor-appointments (availability, create, history, cancel). In-person visits only |
-| ambulance `/api/v1/ambulance/bookings` | estimate, emergency, scheduled, list, get, track, cancel, payment |
+| ambulance `/api/v1/ambulance/bookings` | estimate, emergency, scheduled, list, track, cancel, payment |
 | hbc `/api/v1/hbc` | catalog/services, patient/bookings (create, list, get, pay, cancel) |
 | payment `/api/payments` | get, refresh (status of your own payment after checkout) |
 
 ## Layout
 
 ```
-App.tsx                     providers + navigator
+App.tsx                     Redux Provider + navigator; restores the session on launch
 src/config.ts               gateway URL, clientId
-src/api/                    HTTP client (errors from every service normalised), types, endpoints
-src/auth/AuthContext.tsx    session, refresh, onboarding gate
-src/navigation/             auth stack · onboarding · tabs (Home, Bookings, Records, Profile) + screens
-src/screens/                auth, onboarding, home, hospital, ambulance, homecare, bookings, records, profile
+src/app/                    Redux store (RTK) + typed hooks (useAppDispatch, useAppSelector)
+src/services/http.ts        fetch wrapper; errors from every service normalised to one ApiError
+src/services/baseApi.ts     the one RTK Query API: auth header, 401 -> refresh -> retry, cache tags
+src/features/<name>/        one folder per feature, like the service provider app's modules:
+  api.ts                      RTK Query endpoints (baseApi.injectEndpoints) + generated hooks
+  types.ts                    that service's request/response shapes
+  screens/  components/       the feature's UI
+src/features/auth/          authSlice (session state) + authThunks (login, refresh, logout) + useAuth()
+src/navigation/             auth stack · onboarding · tabs (Home, Bookings, Records, Profile)
+src/lib/                    useScreenQuery (RTK result -> screen state), useAction, location, formatting
 src/ui/                     theme + shared components
 ```
+
+Features: `auth`, `onboarding`, `home`, `profile` (profile, family, ABHA), `records`, `hospital` (hospitals, doctors, appointments, emergency SOS), `ambulance`, `homecare`, `bookings`, `payments`.
+
+### State management (Redux Toolkit)
+
+- **Server data** lives in the RTK Query cache. Screens call the generated hooks (`useFamilyQuery()`, `useBookAppointmentMutation()`…). Mutations invalidate tags (`Family`, `Appointments`, `CareBookings`…), so lists refetch by themselves after a change.
+- **Session** (tokens, `me`, auth status) lives in `authSlice`. Screens use `useAuth()`.
+- Signing out clears the slice and resets the whole RTK Query cache.
+- To add an endpoint, add it to the feature's `api.ts` and use the exported hook. A new feature gets its own `src/features/<name>/` folder.
 
 ## Google sign-in
 

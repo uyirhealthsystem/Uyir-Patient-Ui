@@ -2,34 +2,34 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { DefaultTheme, NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth } from "../features/auth/useAuth";
 import { Ionicons, Loading, type IconName } from "../ui/components";
 import { colors } from "../ui/theme";
 import type { AppStackParams, AuthStackParams, TabParams } from "./types";
 
-import ForgotPasswordScreen from "../screens/auth/ForgotPasswordScreen";
-import LoginScreen from "../screens/auth/LoginScreen";
-import RegisterScreen from "../screens/auth/RegisterScreen";
-import VerifyLoginScreen from "../screens/auth/VerifyLoginScreen";
-import OnboardingScreen from "../screens/onboarding/OnboardingScreen";
+import ForgotPasswordScreen from "../features/auth/screens/ForgotPasswordScreen";
+import LoginScreen from "../features/auth/screens/LoginScreen";
+import RegisterScreen from "../features/auth/screens/RegisterScreen";
+import VerifyLoginScreen from "../features/auth/screens/VerifyLoginScreen";
+import OnboardingScreen from "../features/onboarding/screens/OnboardingScreen";
 
-import HomeScreen from "../screens/home/HomeScreen";
-import BookingsScreen from "../screens/bookings/BookingsScreen";
-import RecordsScreen from "../screens/records/RecordsScreen";
-import ProfileScreen from "../screens/profile/ProfileScreen";
+import HomeScreen from "../features/home/screens/HomeScreen";
+import BookingsScreen from "../features/bookings/screens/BookingsScreen";
+import RecordsScreen from "../features/records/screens/RecordsScreen";
+import ProfileScreen from "../features/profile/screens/ProfileScreen";
 
-import BookAppointmentScreen from "../screens/hospital/BookAppointmentScreen";
-import DoctorsScreen from "../screens/hospital/DoctorsScreen";
-import EmergencySosScreen from "../screens/hospital/EmergencySosScreen";
-import HospitalDetailScreen from "../screens/hospital/HospitalDetailScreen";
-import HospitalsScreen from "../screens/hospital/HospitalsScreen";
+import BookAppointmentScreen from "../features/hospital/screens/BookAppointmentScreen";
+import DoctorsScreen from "../features/hospital/screens/DoctorsScreen";
+import EmergencySosScreen from "../features/hospital/screens/EmergencySosScreen";
+import HospitalDetailScreen from "../features/hospital/screens/HospitalDetailScreen";
+import HospitalsScreen from "../features/hospital/screens/HospitalsScreen";
 
-import AmbulanceBookScreen from "../screens/ambulance/AmbulanceBookScreen";
-import AmbulanceDetailScreen from "../screens/ambulance/AmbulanceDetailScreen";
+import AmbulanceBookScreen from "../features/ambulance/screens/AmbulanceBookScreen";
+import AmbulanceDetailScreen from "../features/ambulance/screens/AmbulanceDetailScreen";
 
-import HomeCareBookScreen from "../screens/homecare/HomeCareBookScreen";
-import HomeCareDetailScreen from "../screens/homecare/HomeCareDetailScreen";
-import HomeCareScreen from "../screens/homecare/HomeCareScreen";
+import HomeCareBookScreen from "../features/homecare/screens/HomeCareBookScreen";
+import HomeCareDetailScreen from "../features/homecare/screens/HomeCareDetailScreen";
+import HomeCareScreen from "../features/homecare/screens/HomeCareScreen";
 import LabScanScreen from "../screens/labscan/LabScanScreen";
 import SampleCollectionScreen from "../screens/labscan/SampleCollectionScreen";
 import LabScanCatalogScreen from "../screens/labscan/LabScanCatalogScreen";
@@ -38,15 +38,15 @@ import LabScanDetailScreen from "../screens/labscan/LabScanDetailScreen";
 import LabScanResultsScreen from "../screens/labscan/LabScanResultsScreen";
 import SampleCollectorTrackingScreen from "../screens/labscan/SampleCollectorTrackingScreen";
 
-import HealthRecordDetailScreen from "../screens/records/HealthRecordDetailScreen";
-import HealthRecordsScreen from "../screens/records/HealthRecordsScreen";
-import MedicalHistoryScreen from "../screens/records/MedicalHistoryScreen";
-import MedicalListScreen from "../screens/records/MedicalListScreen";
+import HealthRecordDetailScreen from "../features/records/screens/HealthRecordDetailScreen";
+import HealthRecordsScreen from "../features/records/screens/HealthRecordsScreen";
+import MedicalHistoryScreen from "../features/records/screens/MedicalHistoryScreen";
+import MedicalListScreen from "../features/records/screens/MedicalListScreen";
 
-import AbhaScreen from "../screens/profile/AbhaScreen";
-import EditProfileScreen from "../screens/profile/EditProfileScreen";
-import FamilyMemberFormScreen from "../screens/profile/FamilyMemberFormScreen";
-import FamilyScreen from "../screens/profile/FamilyScreen";
+import AbhaScreen from "../features/profile/screens/AbhaScreen";
+import EditProfileScreen from "../features/profile/screens/EditProfileScreen";
+import FamilyMemberFormScreen from "../features/profile/screens/FamilyMemberFormScreen";
+import FamilyScreen from "../features/profile/screens/FamilyScreen";
 
 const AuthStack = createNativeStackNavigator<AuthStackParams>();
 const AppStack = createNativeStackNavigator<AppStackParams>();

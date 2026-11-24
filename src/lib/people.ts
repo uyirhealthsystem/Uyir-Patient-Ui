@@ -1,4 +1,5 @@
-import type { FamilyMember, Gender, Me, PatientRelationship, Relationship } from "../api/types";
+import type { PatientRelationship } from "../features/hospital/types";
+import type { FamilyMember, Gender, Me, Relationship } from "../features/profile/types";
 
 /** userservice family relationship -> hospitalservice booking relationship. */
 export function toBookingRelationship(r: Relationship): PatientRelationship {
