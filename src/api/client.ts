@@ -107,6 +107,33 @@ export async function request<T>(method: string, path: string, opts: RequestOpti
   return data as T;
 }
 
+export async function requestBinary(
+  path: string,
+  opts: Omit<RequestOptions, "body"> = {},
+): Promise<{ bytes: ArrayBuffer; contentType: string | null }> {
+  const useAuth = opts.auth !== false;
+  let res = await send("GET", path, opts, useAuth ? hooks.getAccessToken() : null);
+
+  if (res.status === 401 && useAuth) {
+    const fresh = await refreshOnce();
+    if (fresh) res = await send("GET", path, opts, fresh);
+  }
+
+  if (!res.ok) {
+    const text = await res.text();
+    let data: unknown = null;
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = text;
+      }
+    }
+    throw toApiError(res.status, data);
+  }
+  return { bytes: await res.arrayBuffer(), contentType: res.headers.get("Content-Type") };
+}
+
 export const api = {
   get: <T>(path: string, opts?: RequestOptions) => request<T>("GET", path, opts),
   post: <T>(path: string, body?: unknown, opts?: RequestOptions) => request<T>("POST", path, { ...opts, body }),

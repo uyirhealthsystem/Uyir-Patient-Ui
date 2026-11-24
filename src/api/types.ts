@@ -408,6 +408,150 @@ export interface CarePayResponse {
   };
 }
 
+// ── Lab & Scan / patient sample collection ─────────────────────────────────
+export type LabScanAppointmentType = "LAB" | "SCAN";
+export type LabScanAppointmentMode = "CENTER" | "HOME";
+export type LabScanAppointmentStatus = "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "RESCHEDULED";
+
+export interface PatientLabTest {
+  labTestId: string;
+  price: string | number | null;
+  turnaroundTime: number | null;
+  testCatalog: {
+    testCatalogId: string;
+    code: string;
+    name: string;
+    description: string | null;
+    category: string | null;
+    sampleType: string;
+    fastingRequirement: "NOT_REQUIRED" | "REQUIRED" | "OPTIONAL";
+    fastingHours: number | null;
+    preparationInstructions: string | null;
+  };
+}
+export interface PatientLab {
+  labId: string;
+  name: string;
+  phone: string | null;
+  address: string | null;
+  districtId: string | null;
+  tests: PatientLabTest[];
+}
+export interface PatientScanService {
+  scanServiceId: string;
+  price: string | number | null;
+  turnaroundTime: number | null;
+  equipmentRequired: boolean;
+  homeServiceAvailable: boolean;
+  serviceCatalog: {
+    serviceCatalogId: string;
+    code: string;
+    name: string;
+    description: string | null;
+    category: string | null;
+  };
+}
+export interface PatientScanCenter {
+  scanCenterId: string;
+  name: string;
+  phone: string | null;
+  address: string | null;
+  districtId: string | null;
+  services: PatientScanService[];
+}
+export interface LabScanAppointmentInput {
+  labId?: string;
+  scanCenterId?: string;
+  appointmentType: LabScanAppointmentType;
+  appointmentMode: LabScanAppointmentMode;
+  appointmentDate: string;
+  startTime: string;
+  endTime: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  specialInstructions?: string;
+  patientNotes?: string;
+  tests?: { labTestId: string }[];
+  services?: { scanServiceId: string }[];
+}
+export type LabScanPaymentStatus = "CREATED" | "PAID" | "FAILED" | "CANCELLED" | "EXPIRED";
+export interface LabScanPayment {
+  paymentId: string;
+  status: LabScanPaymentStatus;
+  amount: string | number;
+  currency: string;
+  checkoutUrl: string;
+  expiresAt: string | null;
+  paidAt: string | null;
+  createdAt: string;
+}
+export interface LabScanAppointment {
+  appointmentId: string;
+  bookingId: string;
+  patientId: string;
+  appointmentType: LabScanAppointmentType;
+  appointmentMode: LabScanAppointmentMode;
+  appointmentDate: string;
+  startTime: string;
+  endTime: string;
+  address: string | null;
+  status: LabScanAppointmentStatus;
+  patientNotes: string | null;
+  lab?: { labId: string; name: string; address: string | null; phone: string | null } | null;
+  scanCenter?: { scanCenterId: string; name: string; address: string | null; phone: string | null } | null;
+  tests: { appointmentTestId: string; price: string | number | null; status: string; labTest: { testCatalog: { name: string } } }[];
+  services: { appointmentServiceId: string; price: string | number | null; status: string; scanService: { serviceCatalog: { name: string } } }[];
+  homeCollection?: { homeCollectionId: string; status: string; address?: string; assignedAt?: string | null } | null;
+  payments?: LabScanPayment[];
+}
+export interface LabScanReport {
+  reportId: string;
+  status: "PENDING" | "UPLOADED" | "SENT";
+  reportNotes: string | null;
+  uploadedAt: string | null;
+  sentAt: string | null;
+  appointmentTest?: { appointmentTestId: string; labTest: { testCatalog: { name: string } } } | null;
+  files: {
+    reportFileId: string;
+    fileName: string;
+    fileType: string | null;
+    fileSize: number | null;
+    uploadedAt: string;
+    downloadPath: string;
+  }[];
+}
+export interface PatientHomeCollection {
+  homeCollectionId: string;
+  status: string;
+  address: string;
+  assignedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  appointment?: LabScanAppointment;
+}
+export interface PatientHomeCollectionTracking {
+  homeCollectionId: string;
+  status: string;
+  assignedAt: string | null;
+  collectedAt: string | null;
+  trackingEvents: { trackingId: string; status: string; notes: string | null; createdAt: string }[];
+  collector: {
+    name: string;
+    phone: string | null;
+    location: { latitude: number; longitude: number; updatedAt: string | null } | null;
+  } | null;
+}
+export interface PatientTimeSlot {
+  timeSlotId: string;
+  labId: string | null;
+  scanCenterId: string | null;
+  date: string;
+  startTime: string;
+  endTime: string;
+  isAvailable: boolean;
+}
+
 // ── payment-service ─────────────────────────────────────────────────────────
 export interface Payment {
   id: string;

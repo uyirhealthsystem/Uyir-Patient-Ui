@@ -1,7 +1,7 @@
 // Every backend call the patient app makes, grouped by service. Only
 // patient-facing endpoints live here: no provider, hospital-staff, driver,
-// nurse, PRO, HP or admin operations, and nothing from ECG on Wheels,
-// teleconsultation or lab & scan.
+// nurse, PRO, HP or admin operations, and nothing from ECG on Wheels or
+// teleconsultation.
 import { CLIENT_ID, PRIVACY_NOTICE_VERSION } from "../config";
 import { api } from "./client";
 import type {
@@ -30,6 +30,14 @@ import type {
   Hospital,
   HospitalType,
   LoginChallenge,
+  LabScanAppointment,
+  LabScanAppointmentInput,
+  LabScanPayment,
+  LabScanReport,
+  PatientHomeCollectionTracking,
+  PatientLab,
+  PatientScanCenter,
+  PatientTimeSlot,
   Me,
   MedicalHistory,
   Medication,
@@ -44,6 +52,9 @@ import type {
   Vital,
   VitalType,
 } from "./types";
+
+type LabScanEnvelope<T> = { status: "success"; data: T };
+const labScanData = async <T>(promise: Promise<LabScanEnvelope<T>>) => (await promise).data;
 
 // ── authservice  /api/v1/auth ───────────────────────────────────────────────
 export const authApi = {
@@ -207,6 +218,32 @@ export const homeCareApi = {
   get: (id: string) => api.get<CareBooking>(`/api/v1/hbc/patient/bookings/${id}`),
   pay: (id: string) => api.post<CarePayResponse>(`/api/v1/hbc/patient/bookings/${id}/pay`, {}),
   cancel: (id: string, reason?: string) => api.post<CareBooking>(`/api/v1/hbc/patient/bookings/${id}/cancel`, { reason }),
+};
+
+// ── labscan /api/v1/labscan/patient (PATIENT only) ─────────────────────────
+export const labScanApi = {
+  labs: () => labScanData(api.get<LabScanEnvelope<PatientLab[]>>("/api/v1/labscan/patient/labs")),
+  scanCenters: () => labScanData(api.get<LabScanEnvelope<PatientScanCenter[]>>("/api/v1/labscan/patient/scan-centers")),
+  timeSlots: (q: { labId?: string; scanCenterId?: string; date?: string }) =>
+    labScanData(api.get<LabScanEnvelope<PatientTimeSlot[]>>("/api/v1/labscan/patient/time-slots", { query: q })),
+  createAppointment: (body: LabScanAppointmentInput) =>
+    labScanData(api.post<LabScanEnvelope<LabScanAppointment>>("/api/v1/labscan/patient/appointments", body)),
+  appointments: async () =>
+    labScanData(api.get<LabScanEnvelope<LabScanAppointment[]>>("/api/v1/labscan/patient/appointments")),
+  appointment: (id: string) =>
+    labScanData(api.get<LabScanEnvelope<LabScanAppointment>>(`/api/v1/labscan/patient/appointments/${id}`)),
+  reports: (id: string) =>
+    labScanData(api.get<LabScanEnvelope<LabScanReport[]>>(`/api/v1/labscan/patient/appointments/${id}/reports`)),
+  homeCollections: async () =>
+    (await labScanData(api.get<LabScanEnvelope<{ total: number; bookings: LabScanAppointment[] }>>("/api/v1/labscan/patient/home-collections"))).bookings,
+  homeCollectionHistory: async () =>
+    (await labScanData(api.get<LabScanEnvelope<{ total: number; bookings: LabScanAppointment[] }>>("/api/v1/labscan/patient/home-collections/history"))).bookings,
+  homeCollection: (id: string) =>
+    labScanData(api.get<LabScanEnvelope<LabScanAppointment>>(`/api/v1/labscan/patient/home-collections/${id}`)),
+  homeCollectionTracking: (id: string) =>
+    labScanData(api.get<LabScanEnvelope<PatientHomeCollectionTracking>>(`/api/v1/labscan/patient/home-collections/${id}/tracking`)),
+  createPaymentLink: (appointmentId: string) =>
+    labScanData(api.post<LabScanEnvelope<LabScanPayment>>(`/api/v1/labscan/patient/appointments/${appointmentId}/payment`, {})),
 };
 
 // ── payment-service  /api/payments (read own payments) ──────────────────────

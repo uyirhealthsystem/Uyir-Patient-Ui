@@ -30,6 +30,13 @@ import AmbulanceDetailScreen from "../screens/ambulance/AmbulanceDetailScreen";
 import HomeCareBookScreen from "../screens/homecare/HomeCareBookScreen";
 import HomeCareDetailScreen from "../screens/homecare/HomeCareDetailScreen";
 import HomeCareScreen from "../screens/homecare/HomeCareScreen";
+import LabScanScreen from "../screens/labscan/LabScanScreen";
+import SampleCollectionScreen from "../screens/labscan/SampleCollectionScreen";
+import LabScanCatalogScreen from "../screens/labscan/LabScanCatalogScreen";
+import LabScanBookingScreen from "../screens/labscan/LabScanBookingScreen";
+import LabScanDetailScreen from "../screens/labscan/LabScanDetailScreen";
+import LabScanResultsScreen from "../screens/labscan/LabScanResultsScreen";
+import SampleCollectorTrackingScreen from "../screens/labscan/SampleCollectorTrackingScreen";
 
 import HealthRecordDetailScreen from "../screens/records/HealthRecordDetailScreen";
 import HealthRecordsScreen from "../screens/records/HealthRecordsScreen";
@@ -126,6 +133,13 @@ export default function RootNavigator() {
           <AppStack.Screen name="HomeCare" component={HomeCareScreen} options={{ title: "Home care" }} />
           <AppStack.Screen name="HomeCareBook" component={HomeCareBookScreen} options={{ title: "Book home care" }} />
           <AppStack.Screen name="HomeCareDetail" component={HomeCareDetailScreen} options={{ title: "Home care booking" }} />
+          <AppStack.Screen name="LabScan" component={LabScanScreen} options={{ title: "Lab & Scan" }} />
+          <AppStack.Screen name="SampleCollection" component={SampleCollectionScreen} options={{ title: "Sample collection" }} />
+          <AppStack.Screen name="LabScanCatalog" component={LabScanCatalogScreen} options={{ title: "Choose tests or scans" }} />
+          <AppStack.Screen name="LabScanBooking" component={LabScanBookingScreen} options={{ title: "Book Lab & Scan" }} />
+          <AppStack.Screen name="LabScanDetail" component={LabScanDetailScreen} options={{ title: "Lab & Scan booking" }} />
+          <AppStack.Screen name="LabScanResults" component={LabScanResultsScreen} options={{ title: "Test results" }} />
+          <AppStack.Screen name="SampleCollectorTracking" component={SampleCollectorTrackingScreen} options={{ title: "Sample collector" }} />
           <AppStack.Screen name="MedicalList" component={MedicalListScreen} />
           <AppStack.Screen name="HealthRecords" component={HealthRecordsScreen} options={{ title: "Provider records" }} />
           <AppStack.Screen name="HealthRecordDetail" component={HealthRecordDetailScreen} options={{ title: "Record" }} />
