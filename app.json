@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "Uyir",
+    "slug": "uyir-patient",
+    "scheme": "uyir",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "in.uyir.patient",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Uyir uses your location to find nearby hospitals, emergency care and to send an ambulance to you."
+      }
+    },
+    "android": {
+      "package": "in.uyir.patient",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4F1",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-web-browser",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Uyir uses your location to find nearby hospitals, emergency care and to send an ambulance to you."
+        }
+      ],
+      "./plugins/withCmakeVersion",
+      "expo-font",
+      "@react-native-community/datetimepicker"
+    ]
+  }
+}
