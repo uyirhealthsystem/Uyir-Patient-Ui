@@ -270,10 +270,46 @@ export function DateField({
   const current = fromIso(value) ?? defaultDate ?? new Date();
   const age = showAge && value ? ageOf(value) : null;
 
+  if (Platform.OS === "web") {
+    return (
+      <FieldShell label={label} required={required} error={error} hint={hint}>
+        <View style={[s.inputBox, error && s.inputError]}>
+          <Ionicons name="calendar-outline" size={20} color={value ? colors.primary : colors.gray} />
+          <input
+            type="date"
+            value={value}
+            min={minDate ? toIso(minDate) : undefined}
+            max={maxDate ? toIso(maxDate) : undefined}
+            onChange={(e) => onChange(e.target.value)}
+            style={{
+              flex: 1,
+              border: "none",
+              outline: "none",
+              background: "transparent",
+              fontSize: 15,
+              fontFamily: "inherit",
+              color: value ? colors.text : colors.placeholder,
+              paddingTop: 12,
+              paddingBottom: 12,
+              cursor: "pointer",
+            }}
+          />
+          {age != null ? (
+            <View style={s.agePill}>
+              <Text style={s.agePillText}>{age} yrs</Text>
+            </View>
+          ) : value && clearable ? (
+            <Pressable onPress={() => onChange("")} hitSlop={10} accessibilityLabel={`Clear ${label}`}>
+              <Ionicons name="close-circle" size={18} color={colors.placeholder} />
+            </Pressable>
+          ) : null}
+        </View>
+      </FieldShell>
+    );
+  }
+
   const open = () => {
     if (Platform.OS === "android") {
-      // Standard Android calendar dialog. (design: "material" needs a Material
-      // Components app theme - with the default AppCompat theme it crashes.)
       DateTimePickerAndroid.open({
         value: current,
         mode: "date",
@@ -283,7 +319,9 @@ export function DateField({
         minimumDate: minDate,
         positiveButton: { label: "Done", textColor: colors.primary },
         negativeButton: { label: "Cancel", textColor: colors.textMuted },
-        onValueChange: (_event, date) => onChange(toIso(date)),
+        onValueChange: (_event, date) => {
+          if (date) onChange(toIso(date));
+        },
       });
     } else {
       setIosOpen(true);
@@ -320,7 +358,9 @@ export function DateField({
                 maximumDate={maxDate}
                 minimumDate={minDate}
                 accentColor={colors.primary}
-                onValueChange={(_e, date) => onChange(toIso(date))}
+                onValueChange={(_e, date) => {
+                  if (date) onChange(toIso(date));
+                }}
               />
               <Button title="Done" onPress={() => setIosOpen(false)} />
             </View>

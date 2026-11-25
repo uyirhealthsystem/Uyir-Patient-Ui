@@ -1,38 +1,25 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Linking, Text, View } from "react-native";
 import type { Place } from "../../../services/types";
 import { useBookEmergencyAmbulanceMutation, useEstimateFareMutation, useScheduleAmbulanceMutation } from "../api";
 import type { AmbulanceEmergencyType, AmbulanceType, FareEstimate } from "../types";
 import { useAuth } from "../../auth/useAuth";
 import { atTime, money, nextDays, TIME_SLOTS } from "../../../lib/format";
-import { geocode, getCurrentPosition, reverseGeocode, useAction } from "../../../lib/hooks";
+import { geocode, useAction } from "../../../lib/hooks";
+import { LocationCard } from "../../location/LocationCard";
+import { useCurrentLocation } from "../../location/useCurrentLocation";
 import type { AppScreen } from "../../../navigation/types";
 import { Button, Card, ErrorBox, IconBox, KV, Notice, Row, Screen, type IconName } from "../../../ui/components";
 import { DayStrip, IconGrid, OptionCards, Segmented, TimeSlots, time12 } from "../../../ui/form";
 import { PhoneField, QuestionCard, TextField } from "../../../ui/pickers";
 import { colors, space } from "../../../ui/theme";
-
-const EMERGENCY_OPTIONS: { value: AmbulanceEmergencyType; label: string; icon: IconName }[] = [
-  { value: "CARDIAC", label: "Heart / chest pain", icon: "heart-outline" },
-  { value: "ACCIDENT", label: "Accident / injury", icon: "car-outline" },
-  { value: "BREATHING", label: "Breathing trouble", icon: "cloud-outline" },
-  { value: "STROKE", label: "Stroke / fits", icon: "pulse-outline" },
-  { value: "PREGNANCY", label: "Pregnancy", icon: "woman-outline" },
-  { value: "OTHER", label: "Something else", icon: "help-circle-outline" },
-];
-
-const TYPE_OPTIONS: { value: AmbulanceType; label: string; description: string; icon: IconName }[] = [
-  { value: "BLS", label: "Basic (BLS)", description: "Oxygen and first aid. Most emergencies.", icon: "medkit-outline" },
-  { value: "ALS", label: "Advanced (ALS)", description: "Paramedic, cardiac monitor, life-support drugs.", icon: "pulse-outline" },
-  { value: "ICU", label: "Mobile ICU", description: "Ventilator and ICU care on the way.", icon: "bed-outline" },
-  { value: "TRANSPORT", label: "Patient transport", description: "Non-emergency, e.g. discharge or check-ups.", icon: "car-outline" },
-];
+import { EMERGENCY_OPTIONS, TYPE_OPTIONS } from "../options";
 
 export default function AmbulanceBookScreen({ navigation, route }: AppScreen<"AmbulanceBook">) {
   const { me } = useAuth();
   const [mode, setMode] = useState<"EMERGENCY" | "SCHEDULED">(route.params?.mode ?? "EMERGENCY");
-  const [pickup, setPickup] = useState<Place | null>(null);
-  const [pickupText, setPickupText] = useState("");
+  // Pickup is the shared current place (also used by Emergency SOS).
+  const loc = useCurrentLocation({ auto: true });
   const [dropText, setDropText] = useState("");
   const [emergencyType, setEmergencyType] = useState<AmbulanceEmergencyType | null>(null);
   const [ambType, setAmbType] = useState<AmbulanceType | null>(null);
@@ -42,7 +29,6 @@ export default function AmbulanceBookScreen({ navigation, route }: AppScreen<"Am
   const [name, setName] = useState(me?.profile.fullName ?? "");
   const [phone, setPhone] = useState((me?.profile.phone ?? "").replace(/\D/g, "").slice(-10));
   const [estimate, setEstimate] = useState<FareEstimate | null>(null);
-  const locate = useAction();
   const est = useAction();
   const book = useAction();
   const [estimateFare] = useEstimateFareMutation();
@@ -50,26 +36,9 @@ export default function AmbulanceBookScreen({ navigation, route }: AppScreen<"Am
   const [scheduleRide] = useScheduleAmbulanceMutation();
   const emergency = mode === "EMERGENCY";
 
-  const useMyLocation = () =>
-    locate.run(async () => {
-      const c = await getCurrentPosition();
-      const address = await reverseGeocode(c);
-      setPickup({ lat: c.latitude, lng: c.longitude, address });
-      setPickupText(address ?? `${c.latitude.toFixed(5)}, ${c.longitude.toFixed(5)}`);
-    });
-
-  // In an emergency, grab the location straight away.
-  useEffect(() => {
-    if (emergency && !pickup) void useMyLocation();
-  }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const resolvePickup = async (): Promise<Place> => {
-    if (pickup) return pickup;
-    const c = pickupText.trim() ? await geocode(pickupText.trim()) : undefined;
-    if (!c) throw new Error("Set the pickup location (use your location, or type an address we can find).");
-    const p = { lat: c.latitude, lng: c.longitude, address: pickupText.trim() };
-    setPickup(p);
-    return p;
+    if (loc.place) return loc.place;
+    throw new Error("Set the pickup location: use your location, or type the address.");
   };
   const resolveDrop = async (): Promise<Place | undefined> => {
     if (!dropText.trim()) return undefined;
@@ -146,29 +115,7 @@ export default function AmbulanceBookScreen({ navigation, route }: AppScreen<"Am
       ) : null}
 
       <QuestionCard icon="navigate-outline" tone="green" title="Where?">
-        <Card style={{ padding: 12, gap: 6, backgroundColor: pickup ? colors.successSoft : colors.bg, borderColor: pickup ? colors.success : colors.border }}>
-          <Row style={{ gap: 10 }}>
-            <IconBox icon={pickup ? "checkmark-circle" : "locate-outline"} tone={pickup ? "green" : "primary"} size={34} />
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 12, fontWeight: "800", color: colors.textMuted }}>PICKUP</Text>
-              <Text style={{ fontSize: 14, color: colors.text }} numberOfLines={2}>
-                {locate.busy ? "Finding your location…" : pickupText || "Not set yet"}
-              </Text>
-            </View>
-          </Row>
-          <Button title={pickup ? "Refresh my location" : "Use my current location"} icon="locate-outline" variant="outline" small onPress={useMyLocation} loading={locate.busy} />
-        </Card>
-        {locate.error ? <ErrorBox message={locate.error} /> : null}
-        <TextField
-          label="Or type the pickup address"
-          icon="pin-outline"
-          value={pickup ? "" : pickupText}
-          onChangeText={(t) => {
-            setPickupText(t);
-            setPickup(null);
-          }}
-          placeholder="House no., street, area, city"
-        />
+        <LocationCard label="PICKUP" />
         <TextField
           label={emergency ? "Hospital to go to" : "Drop address"}
           required={!emergency}

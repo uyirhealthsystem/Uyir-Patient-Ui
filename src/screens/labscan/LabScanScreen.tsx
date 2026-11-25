@@ -1,15 +1,16 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { labScanApi } from "../../api/endpoints";
+import { errorMessage } from "../../api/client";
 import type { LabScanAppointmentType, PatientLab, PatientScanCenter } from "../../api/types";
+import { useAuth } from "../../features/auth/useAuth";
 import { money } from "../../lib/format";
-import { useLoad } from "../../lib/hooks";
 import type { AppStackParams, AppScreen } from "../../navigation/types";
-import { Body, Card, Empty, ErrorBox, H2, KV, Loading, Screen, humanize } from "../../ui/components";
+import { Body, Card, Empty, ErrorBox, H2, KV, Loading, Screen } from "../../ui/components";
 import { Segmented } from "../../ui/form";
 
 type Props = {
-  navigation: NativeStackNavigationProp<AppStackParams>;
+  navigation: NativeStackNavigationProp<AppStackParams, any>;
   sampleCollectionOnly?: boolean;
 };
 
@@ -19,11 +20,48 @@ const TYPES = [
 ];
 
 export function LabScanDiscovery({ navigation, sampleCollectionOnly = false }: Props) {
+  const { me } = useAuth();
+  const district = me?.profile?.district?.trim() || undefined;
+
   const [kind, setKind] = useState<LabScanAppointmentType>("LAB");
-  const { data, error, loading, refreshing, refresh } = useLoad(
-    () => (kind === "LAB" ? labScanApi.labs() : labScanApi.scanCenters()),
-    [kind],
+  const [labs, setLabs] = useState<PatientLab[]>([]);
+  const [centers, setCenters] = useState<PatientScanCenter[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadItems = useCallback(
+    async (isRefresh = false) => {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+      try {
+        if (kind === "LAB") {
+          const rows = await labScanApi.labs(district);
+          setLabs(rows ?? []);
+        } else {
+          const rows = await labScanApi.scanCenters(district);
+          setCenters(rows ?? []);
+        }
+      } catch (e) {
+        setError(errorMessage(e));
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [kind, district],
   );
+
+  useEffect(() => {
+    loadItems(false);
+  }, [loadItems]);
+
+  const refresh = () => loadItems(true);
+  const items = kind === "LAB" ? labs : centers;
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
@@ -35,9 +73,14 @@ export function LabScanDiscovery({ navigation, sampleCollectionOnly = false }: P
       {!sampleCollectionOnly ? <Segmented options={TYPES} value={kind} onChange={setKind} /> : null}
       {loading ? <Loading /> : null}
       {error ? <ErrorBox message={error} onRetry={refresh} /> : null}
-      {data && data.length === 0 ? <Empty title={kind === "LAB" ? "No labs available" : "No scan centers available"} subtitle="Please check back later." /> : null}
+      {!loading && !error && items.length === 0 ? (
+        <Empty
+          title={kind === "LAB" ? "No labs available" : "No scan centers available"}
+          subtitle={district ? `No centers listed in ${district} yet.` : "Please check back later."}
+        />
+      ) : null}
       {kind === "LAB"
-        ? (data as PatientLab[] | null)?.map((lab) => (
+        ? labs.map((lab) => (
             <Card
               key={lab.labId}
               onPress={() =>
@@ -55,7 +98,7 @@ export function LabScanDiscovery({ navigation, sampleCollectionOnly = false }: P
               {lab.tests.length ? <KV k="From" v={money(lab.tests[0].price)} /> : null}
             </Card>
           ))
-        : (data as PatientScanCenter[] | null)?.map((center) => (
+        : centers.map((center) => (
             <Card
               key={center.scanCenterId}
               onPress={() =>
@@ -71,7 +114,9 @@ export function LabScanDiscovery({ navigation, sampleCollectionOnly = false }: P
               <Body muted>{center.address ?? "Address not available"}</Body>
               <KV k="Scans available" v={String(center.services.length)} />
               {center.services.length ? <KV k="From" v={money(center.services[0].price)} /> : null}
-              {center.services.some((service) => service.homeServiceAvailable) ? <Body muted>Some services support home visits.</Body> : null}
+              {center.services.some((service) => service.homeServiceAvailable) ? (
+                <Body muted>Some services support home visits.</Body>
+              ) : null}
             </Card>
           ))}
     </Screen>

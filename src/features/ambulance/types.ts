@@ -61,3 +61,11 @@ export interface AmbulancePayment {
   currency: string;
   checkoutUrl: string | null;
 }
+
+/** A driver has accepted and the patient isn't aboard yet: the patient pays now, then gets the pickup OTP. */
+export const PAY_BEFORE_PICKUP: AmbulanceBookingStatus[] = ["EN_ROUTE_TO_PICKUP", "ARRIVED"];
+
+/** The patient still has to pay: before pickup (prepaid rides) or after the drop (rides from before prepayment). */
+export function paymentDue(b: Pick<AmbulanceBooking, "status" | "paidAt">): boolean {
+  return !b.paidAt && (PAY_BEFORE_PICKUP.includes(b.status) || b.status === "PAYMENT_PENDING");
+}

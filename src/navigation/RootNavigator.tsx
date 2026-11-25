@@ -20,7 +20,8 @@ import ProfileScreen from "../features/profile/screens/ProfileScreen";
 
 import BookAppointmentScreen from "../features/hospital/screens/BookAppointmentScreen";
 import DoctorsScreen from "../features/hospital/screens/DoctorsScreen";
-import EmergencySosScreen from "../features/hospital/screens/EmergencySosScreen";
+import EmergencySosScreen from "../features/emergency/screens/EmergencySosScreen";
+import EmergencyStatusScreen from "../features/emergency/screens/EmergencyStatusScreen";
 import HospitalDetailScreen from "../features/hospital/screens/HospitalDetailScreen";
 import HospitalsScreen from "../features/hospital/screens/HospitalsScreen";
 
@@ -128,6 +129,7 @@ export default function RootNavigator() {
           <AppStack.Screen name="Doctors" component={DoctorsScreen} options={{ title: "Find a doctor" }} />
           <AppStack.Screen name="BookAppointment" component={BookAppointmentScreen} options={{ title: "Book appointment" }} />
           <AppStack.Screen name="EmergencySos" component={EmergencySosScreen} options={{ title: "Emergency SOS" }} />
+          <AppStack.Screen name="EmergencyStatus" component={EmergencyStatusScreen} options={{ title: "Emergency" }} />
           <AppStack.Screen name="AmbulanceBook" component={AmbulanceBookScreen} options={{ title: "Book ambulance" }} />
           <AppStack.Screen name="AmbulanceDetail" component={AmbulanceDetailScreen} options={{ title: "Ambulance booking" }} />
           <AppStack.Screen name="HomeCare" component={HomeCareScreen} options={{ title: "Home care" }} />

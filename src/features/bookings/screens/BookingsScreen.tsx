@@ -1,18 +1,16 @@
 import { useNavigation } from "@react-navigation/native";
-import { useMemo, useState } from "react";
+import { useMemo, useState , useEffect} from "react";
 import { Alert } from "react-native";
+import { labScanApi } from "../../../../src/api/endpoints";
+import type { CareBooking, LabScanAppointment } from "../../../../src/api/types";
 import { errorMessage } from "../../../services/http";
 import { useAmbulanceBookingsQuery } from "../../ambulance/api";
-import { useCareBookingsQuery, labScanApi } from "../../homecare/api";
-import {
-  useAppointmentHistoryQuery,
-  useCancelAppointmentMutation,
-  useCancelEmergencyBookingMutation,
-  useDoctorQuery,
-  useEmergencyHistoryQuery,
-  useHospitalQuery,
-} from "../../hospital/api";
-import type { Appointment, EmergencyBooking, LabScanAppointment } from "../../hospital/types";
+import { paymentDue, type AmbulanceBooking } from "../../ambulance/types";
+import { useCareBookingsQuery } from "../../homecare/api";
+import { useCancelEmergencyBookingMutation, useEmergencyHistoryQuery } from "../../emergency/api";
+import type { EmergencyBooking } from "../../emergency/types";
+import { useAppointmentHistoryQuery, useCancelAppointmentMutation, useDoctorQuery, useHospitalQuery } from "../../hospital/api";
+import type { Appointment } from "../../hospital/types";
 import { dateTime, money, statusTone } from "../../../lib/format";
 import { useScreenQuery } from "../../../lib/hooks";
 import { Badge, Body, Button, Card, ChipGroup, Empty, ErrorBox, H2, KV, Loading, Row, Screen, humanize } from "../../../ui/components";
@@ -27,7 +25,19 @@ export default function BookingsScreen() {
   return (
     <Screen padded>
       <ChipGroup options={KINDS} value={kind} onChange={setKind} />
-      {kind === "APPOINTMENTS" ? <Appointments /> : kind === "AMBULANCE" ? <Ambulance /> : kind === "HOME_CARE" ? <HomeCare /> : kind === "LAB_SCAN" ? <LabScanBookings /> : kind === "SAMPLE_COLLECTION" ? <LabScanBookings sampleCollectionOnly /> : <Emergency />}
+      {kind === "APPOINTMENTS" ? (
+        <Appointments />
+      ) : kind === "AMBULANCE" ? (
+        <Ambulance />
+      ) : kind === "HOME_CARE" ? (
+        <HomeCare />
+      ) : kind === "LAB_SCAN" ? (
+        <LabScanBookings />
+      ) : kind === "SAMPLE_COLLECTION" ? (
+        <LabScanBookings sampleCollectionOnly />
+      ) : (
+        <Emergency />
+      )}
     </Screen>
   );
 }
@@ -46,7 +56,7 @@ function DoctorName({ id }: { id: string }) {
 
 function Appointments() {
   const nav = useNavigation();
-  const q = useScreenQuery(useAppointmentHistoryQuery());
+  const q = useScreenQuery<Appointment[]>(useAppointmentHistoryQuery());
   const [cancelAppointment] = useCancelAppointmentMutation();
   const rows = useMemo(() => newestFirst(q.data ?? [], (r) => r.appointmentDateTime), [q.data]);
   const { error, loading, refresh } = q;
@@ -97,7 +107,7 @@ function Appointments() {
 
 function Ambulance() {
   const nav = useNavigation();
-  const q = useScreenQuery(useAmbulanceBookingsQuery());
+  const q = useScreenQuery<AmbulanceBooking[]>(useAmbulanceBookingsQuery());
   const data = useMemo(() => newestFirst(q.data ?? [], (r) => r.createdAt), [q.data]);
   const { error, loading, refresh } = q;
   if (loading) return <Loading />;
@@ -114,6 +124,7 @@ function Ambulance() {
           <KV k="Pickup" v={b.pickup.address} />
           <KV k={b.scheduledAt ? "Scheduled" : "Booked"} v={dateTime(b.scheduledAt ?? b.createdAt)} />
           <KV k="Fare" v={b.fare != null ? money(b.fare) : undefined} />
+          {paymentDue(b) ? <Body style={{ fontWeight: "600" }}>Payment due — tap to pay and get your pickup OTP</Body> : null}
         </Card>
       ))}
     </>
@@ -122,7 +133,7 @@ function Ambulance() {
 
 function HomeCare() {
   const nav = useNavigation();
-  const q = useScreenQuery(useCareBookingsQuery());
+  const q = useScreenQuery<CareBooking[]>(useCareBookingsQuery());
   const data = useMemo(() => newestFirst(q.data ?? [], (r) => r.scheduledAt), [q.data]);
   const { error, loading, refresh } = q;
   if (loading) return <Loading />;
@@ -147,12 +158,35 @@ function HomeCare() {
 
 function LabScanBookings({ sampleCollectionOnly = false }: { sampleCollectionOnly?: boolean }) {
   const nav = useNavigation();
-  const { data, error, loading, refresh } = useLoad(async () => newestFirst(await labScanApi.appointments(), (a) => a.startTime));
+  const [data, setData] = useState<LabScanAppointment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const rows = await labScanApi.appointments();
+      setData(newestFirst(rows, (a) => a.startTime));
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    refresh();
+  }, []);
+
   if (loading) return <Loading />;
   if (error) return <ErrorBox message={error} onRetry={refresh} />;
-  const rows = (data ?? []).filter((a) => sampleCollectionOnly
-    ? a.appointmentMode === "HOME" && Boolean(a.homeCollection)
-    : true);
+
+  const rows = data.filter((a) =>
+    sampleCollectionOnly ? a.appointmentMode === "HOME" && Boolean(a.homeCollection) : true
+  );
+
   if (!rows.length) {
     return (
       <>
@@ -164,12 +198,14 @@ function LabScanBookings({ sampleCollectionOnly = false }: { sampleCollectionOnl
       </>
     );
   }
+
   return (
     <>
       {rows.map((a: LabScanAppointment) => {
-        const title = a.appointmentType === "LAB"
-          ? a.tests.map((test) => test.labTest.testCatalog.name).join(", ")
-          : a.services.map((service) => service.scanService.serviceCatalog.name).join(", ");
+        const title =
+          a.appointmentType === "LAB"
+            ? a.tests.map((test) => test.labTest.testCatalog.name).join(", ")
+            : a.services.map((service) => service.scanService.serviceCatalog.name).join(", ");
         const amount = [...a.tests, ...a.services].reduce((sum, item) => sum + Number(item.price ?? 0), 0);
         return (
           <Card key={a.appointmentId} onPress={() => nav.navigate("LabScanDetail", { id: a.appointmentId })}>
@@ -190,7 +226,8 @@ function LabScanBookings({ sampleCollectionOnly = false }: { sampleCollectionOnl
 }
 
 function Emergency() {
-  const q = useScreenQuery(useEmergencyHistoryQuery());
+  const nav = useNavigation();
+  const q = useScreenQuery<EmergencyBooking[]>(useEmergencyHistoryQuery());
   const [cancelEmergency] = useCancelEmergencyBookingMutation();
   const rows = useMemo(() => newestFirst(q.data ?? [], (r) => r.requestedAt), [q.data]);
   const { error, loading, refresh } = q;
@@ -217,7 +254,7 @@ function Emergency() {
   return (
     <>
       {rows.map((b) => (
-        <Card key={b.id}>
+        <Card key={b.id} onPress={() => nav.navigate("EmergencyStatus", { bookingId: b.id, hospitalId: b.hospitalId })}>
           <Row style={{ justifyContent: "space-between" }}>
             <H2>{b.emergencyType}</H2>
             <Badge label={b.status} tone={statusTone(b.status)} />

@@ -1,19 +1,50 @@
-import { useState } from "react";
-import { Alert, Linking, Text } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { Alert, Linking } from "react-native";
 import { labScanApi } from "../../api/endpoints";
 import { errorMessage } from "../../api/client";
-import { useAction, useLoad } from "../../lib/hooks";
+import type { LabScanAppointment } from "../../api/types";
+import { useAction } from "../../lib/hooks";
 import { money, dateTime, statusTone } from "../../lib/format";
-import { openCheckout } from "../../lib/payments";
+import { openCheckout } from "../../features/payments/checkout";
 import type { AppScreen } from "../../navigation/types";
 import { Badge, Body, Button, Card, ErrorBox, H2, KV, Loading, Notice, Screen, Title, humanize } from "../../ui/components";
-import { colors } from "../../ui/theme";
 
 export default function LabScanDetailScreen({ navigation, route }: AppScreen<"LabScanDetail">) {
   const { id } = route.params;
-  const { data: booking, setData, error, loading, refreshing, refresh, reload } = useLoad(() => labScanApi.appointment(id), [id]);
+  const [booking, setBooking] = useState<LabScanAppointment | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const pay = useAction();
   const [resultsOpened, setResultsOpened] = useState(false);
+
+  const fetchBooking = useCallback(
+    async (isRefresh = false) => {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+      try {
+        const res = await labScanApi.appointment(id);
+        setBooking(res);
+      } catch (e) {
+        setError(errorMessage(e));
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [id],
+  );
+
+  useEffect(() => {
+    fetchBooking(false);
+  }, [fetchBooking]);
+
+  const refresh = () => fetchBooking(true);
+  const reload = () => fetchBooking(false);
 
   if (loading) return <Loading />;
   if (error || !booking) return <Screen><ErrorBox message={error ?? "Booking not found"} onRetry={refresh} /></Screen>;
@@ -21,14 +52,26 @@ export default function LabScanDetailScreen({ navigation, route }: AppScreen<"La
   const payment = booking.payments?.[0];
   const paid = booking.payments?.some((item) => item.status === "PAID") ?? false;
   const canPay = !paid && booking.status !== "CANCELLED";
-  const items = booking.appointmentType === "LAB"
-    ? booking.tests.map((test) => ({ id: test.appointmentTestId, name: test.labTest.testCatalog.name, price: test.price }))
-    : booking.services.map((service) => ({ id: service.appointmentServiceId, name: service.scanService.serviceCatalog.name, price: service.price }));
+  const items =
+    booking.appointmentType === "LAB"
+      ? (booking.tests ?? []).map((test) => ({
+          id: test.appointmentTestId,
+          name: test.labTest?.testCatalog?.name ?? "Lab test",
+          price: test.price,
+        }))
+      : (booking.services ?? []).map((service) => ({
+          id: service.appointmentServiceId,
+          name: service.scanService?.serviceCatalog?.name ?? "Scan",
+          price: service.price,
+        }));
 
   const startPayment = () =>
     pay.run(async () => {
       const created = await labScanApi.createPaymentLink(id);
-      setData({ ...booking, payments: [created, ...(booking.payments ?? []).filter((item) => item.paymentId !== created.paymentId)] });
+      setBooking({
+        ...booking,
+        payments: [created, ...(booking.payments ?? []).filter((item) => item.paymentId !== created.paymentId)],
+      });
       if (created.status !== "PAID" && created.checkoutUrl) {
         await openCheckout(created.checkoutUrl);
       }
@@ -53,8 +96,22 @@ export default function LabScanDetailScreen({ navigation, route }: AppScreen<"La
         <KV k="Type" v={booking.appointmentType === "LAB" ? "Lab tests" : "Scan"} />
         <KV k="Mode" v={booking.appointmentMode === "HOME" ? "Home sample collection" : "At center"} />
         <KV k="When" v={dateTime(booking.startTime)} />
-        <KV k="Address" v={booking.appointmentMode === "HOME" ? booking.address ?? undefined : booking.lab?.address ?? booking.scanCenter?.address ?? undefined} />
-        {(booking.lab?.phone || booking.scanCenter?.phone) ? <Button title="Call center" icon="call-outline" variant="secondary" onPress={() => callCenter(booking.lab?.phone ?? booking.scanCenter?.phone)} /> : null}
+        <KV
+          k="Address"
+          v={
+            booking.appointmentMode === "HOME"
+              ? booking.address ?? undefined
+              : booking.lab?.address ?? booking.scanCenter?.address ?? undefined
+          }
+        />
+        {booking.lab?.phone || booking.scanCenter?.phone ? (
+          <Button
+            title="Call center"
+            icon="call-outline"
+            variant="secondary"
+            onPress={() => callCenter(booking.lab?.phone ?? booking.scanCenter?.phone)}
+          />
+        ) : null}
       </Card>
 
       <Card>
@@ -80,10 +137,24 @@ export default function LabScanDetailScreen({ navigation, route }: AppScreen<"La
 
       <Card>
         <H2>Payment</H2>
-        <KV k="Amount" v={payment ? money(payment.amount, payment.currency) : money(items.reduce((sum, item) => sum + Number(item.price ?? 0), 0))} />
+        <KV
+          k="Amount"
+          v={
+            payment
+              ? money(payment.amount, payment.currency)
+              : money(items.reduce((sum, item) => sum + Number(item.price ?? 0), 0))
+          }
+        />
         <KV k="Status" v={payment ? humanize(payment.status) : "Not paid"} />
         {payment?.paidAt ? <KV k="Paid" v={dateTime(payment.paidAt)} /> : null}
-        {canPay ? <Button title={payment?.status === "CREATED" ? "Continue to payment" : "Pay online"} icon="card-outline" onPress={startPayment} loading={pay.busy} /> : null}
+        {canPay ? (
+          <Button
+            title={payment?.status === "CREATED" ? "Continue to payment" : "Pay online"}
+            icon="card-outline"
+            onPress={startPayment}
+            loading={pay.busy}
+          />
+        ) : null}
         {pay.error ? <ErrorBox message={pay.error} /> : null}
         {paid ? <Notice tone="green">Payment received.</Notice> : null}
       </Card>

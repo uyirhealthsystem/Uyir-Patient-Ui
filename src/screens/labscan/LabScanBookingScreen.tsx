@@ -1,13 +1,28 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { labScanApi } from "../../api/endpoints";
+import { errorMessage } from "../../api/client";
 import type { LabScanAppointmentMode, PatientLab, PatientScanCenter, PatientTimeSlot } from "../../api/types";
-import { useAuth } from "../../auth/AuthContext";
-import { atTime, money, nextDays, ymd } from "../../lib/format";
-import { geocode, getCurrentPosition, reverseGeocode, useAction, useLoad, type Coords } from "../../lib/hooks";
+import { useAuth } from "../../features/auth/useAuth";
+import { money, nextDays, ymd } from "../../lib/format";
+import { geocode, getCurrentPosition, reverseGeocode, useAction, type Coords } from "../../lib/hooks";
 import type { AppScreen } from "../../navigation/types";
 import { Body, Button, Card, ErrorBox, H2, KV, Loading, Notice, Screen } from "../../ui/components";
 import { DayStrip, Segmented, TimeSlots } from "../../ui/form";
 import { TextField } from "../../ui/pickers";
+
+type LabDetails = {
+  lab: PatientLab;
+  items: PatientLab["tests"];
+  total: number;
+};
+
+type ScanDetails = {
+  center: PatientScanCenter;
+  items: PatientScanCenter["services"];
+  total: number;
+};
+
+type BookingDetails = LabDetails | ScanDetails;
 
 const MODES = [
   { value: "CENTER" as const, label: "At center", icon: "business-outline" as const },
@@ -22,6 +37,8 @@ const timeLabel = (iso: string) => {
 export default function LabScanBookingScreen({ navigation, route }: AppScreen<"LabScanBooking">) {
   const { kind, centerId, centerName, itemIds } = route.params;
   const { me } = useAuth();
+  const district = me?.profile?.district?.trim() || undefined;
+
   const [mode, setMode] = useState<LabScanAppointmentMode>(kind === "LAB" ? route.params.mode ?? "CENTER" : "CENTER");
   const [day, setDay] = useState(nextDays(14, 0)[0]);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
@@ -31,39 +48,106 @@ export default function LabScanBookingScreen({ navigation, route }: AppScreen<"L
   const locate = useAction();
   const book = useAction();
 
-  const details = useLoad(async () => {
-    if (kind === "LAB") {
-      const labs = await labScanApi.labs();
-      const lab = labs.find((entry) => entry.labId === centerId);
-      if (!lab) return null;
-      const items = lab.tests.filter((test) => itemIds.includes(test.labTestId));
-      if (items.length !== itemIds.length) return null;
-      return { lab, items, total: items.reduce((sum, item) => sum + Number(item.price ?? 0), 0) };
-    }
-    const centers = await labScanApi.scanCenters();
-    const center = centers.find((entry) => entry.scanCenterId === centerId);
-    if (!center) return null;
-    const items = center.services.filter((service) => itemIds.includes(service.scanServiceId));
-    if (items.length !== itemIds.length) return null;
-    return { center, items, total: items.reduce((sum, item) => sum + Number(item.price ?? 0), 0) };
-  }, [kind, centerId, itemIds.join(",")]);
+  const [detailsData, setDetailsData] = useState<BookingDetails | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(true);
+  const [detailsError, setDetailsError] = useState<string | null>(null);
 
-  const slots = useLoad(
-    () =>
-      labScanApi.timeSlots({
-        ...(kind === "LAB" ? { labId: centerId } : { scanCenterId: centerId }),
-        date: ymd(day),
-      }),
-    [kind, centerId, ymd(day)],
+  const [slotsData, setSlotsData] = useState<PatientTimeSlot[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(true);
+  const [slotsRefreshing, setSlotsRefreshing] = useState(false);
+  const [slotsError, setSlotsError] = useState<string | null>(null);
+
+  const itemIdsKey = itemIds.join(",");
+  const dayKey = ymd(day);
+
+  const loadDetails = useCallback(async () => {
+    setDetailsLoading(true);
+    setDetailsError(null);
+    try {
+      if (kind === "LAB") {
+        const labs = await labScanApi.labs(district);
+        const lab = labs.find((entry) => entry.labId === centerId);
+        if (!lab) {
+          setDetailsData(null);
+          return;
+        }
+        const items = lab.tests.filter((test) => itemIds.includes(test.labTestId));
+        if (items.length !== itemIds.length) {
+          setDetailsData(null);
+          return;
+        }
+        setDetailsData({
+          lab,
+          items,
+          total: items.reduce((sum, item) => sum + Number(item.price ?? 0), 0),
+        });
+      } else {
+        const centers = await labScanApi.scanCenters(district);
+        const center = centers.find((entry) => entry.scanCenterId === centerId);
+        if (!center) {
+          setDetailsData(null);
+          return;
+        }
+        const items = center.services.filter((service) => itemIds.includes(service.scanServiceId));
+        if (items.length !== itemIds.length) {
+          setDetailsData(null);
+          return;
+        }
+        setDetailsData({
+          center,
+          items,
+          total: items.reduce((sum, item) => sum + Number(item.price ?? 0), 0),
+        });
+      }
+    } catch (e) {
+      setDetailsError(errorMessage(e));
+    } finally {
+      setDetailsLoading(false);
+    }
+  }, [kind, centerId, district, itemIds, itemIdsKey]);
+
+  const loadSlots = useCallback(
+    async (isRefresh = false) => {
+      if (isRefresh) {
+        setSlotsRefreshing(true);
+      } else {
+        setSlotsLoading(true);
+      }
+      setSlotsError(null);
+      try {
+        const rows = await labScanApi.timeSlots({
+          ...(kind === "LAB" ? { labId: centerId } : { scanCenterId: centerId }),
+          date: dayKey,
+        });
+        setSlotsData(rows);
+      } catch (e) {
+        setSlotsError(errorMessage(e));
+      } finally {
+        setSlotsLoading(false);
+        setSlotsRefreshing(false);
+      }
+    },
+    [kind, centerId, dayKey],
   );
+
+  useEffect(() => {
+    loadDetails();
+  }, [loadDetails]);
+
+  useEffect(() => {
+    loadSlots(false);
+  }, [loadSlots]);
+
+  useEffect(() => {
+    setSelectedTime(null);
+  }, [day]);
+
   const days = useMemo(() => nextDays(14, 0), []);
   const slotByTime = useMemo(() => {
     const map = new Map<string, PatientTimeSlot>();
-    (slots.data ?? []).forEach((slot) => map.set(timeLabel(slot.startTime), slot));
+    slotsData.forEach((slot) => map.set(timeLabel(slot.startTime), slot));
     return map;
-  }, [slots.data]);
-
-  useEffect(() => setSelectedTime(null), [day]);
+  }, [slotsData]);
 
   const useMyLocation = () =>
     locate.run(async () => {
@@ -85,7 +169,9 @@ export default function LabScanBookingScreen({ navigation, route }: AppScreen<"L
       }
 
       const booking = await labScanApi.createAppointment({
-        ...(kind === "LAB" ? { labId: centerId, tests: itemIds.map((labTestId) => ({ labTestId })) } : { scanCenterId: centerId, services: itemIds.map((scanServiceId) => ({ scanServiceId })) }),
+        ...(kind === "LAB"
+          ? { labId: centerId, tests: itemIds.map((labTestId) => ({ labTestId })) }
+          : { scanCenterId: centerId, services: itemIds.map((scanServiceId) => ({ scanServiceId })) }),
         appointmentType: kind,
         appointmentMode: mode,
         appointmentDate: ymd(day),
@@ -104,39 +190,60 @@ export default function LabScanBookingScreen({ navigation, route }: AppScreen<"L
       navigation.replace("LabScanDetail", { id: booking.appointmentId });
     });
 
-  if (details.loading) return <Loading />;
-  if (details.error || !details.data) return <Screen><ErrorBox message={details.error ?? "The selected services are no longer available."} onRetry={details.refresh} /></Screen>;
+  if (detailsLoading) return <Loading />;
+  if (detailsError || !detailsData) {
+    return (
+      <Screen>
+        <ErrorBox message={detailsError ?? "The selected services are no longer available."} onRetry={loadDetails} />
+      </Screen>
+    );
+  }
 
-  const selectedItems = details.data.items;
-  const selectedNames = selectedItems.map((item) => kind === "LAB" ? (item as PatientLab["tests"][number]).testCatalog.name : (item as PatientScanCenter["services"][number]).serviceCatalog.name);
-  const summary = selectedTime ? `${day.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })} · ${selectedTime}` : null;
+  const selectedNames =
+    kind === "LAB"
+      ? (detailsData as LabDetails).items.map((item) => item.testCatalog.name)
+      : (detailsData as ScanDetails).items.map((item) => item.serviceCatalog.name);
+  const summary = selectedTime
+    ? `${day.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })} · ${selectedTime}`
+    : null;
 
   return (
     <Screen
-      refreshing={slots.refreshing}
-      onRefresh={slots.refresh}
-      footer={<Button title={summary ? `Book · ${summary}` : "Choose a time to continue"} icon="calendar-outline" onPress={submit} loading={book.busy} disabled={!selectedTime || !slots.data?.length} />}
+      refreshing={slotsRefreshing}
+      onRefresh={() => loadSlots(true)}
+      footer={
+        <Button
+          title={summary ? `Book · ${summary}` : "Choose a time to continue"}
+          icon="calendar-outline"
+          onPress={submit}
+          loading={book.busy}
+          disabled={!selectedTime || !slotsData.length}
+        />
+      }
     >
       <Card>
         <H2>{centerName}</H2>
         <Body>{selectedNames.join(" · ")}</Body>
-        <KV k="Appointment total" v={money(details.data.total)} />
+        <KV k="Appointment total" v={money(detailsData.total)} />
       </Card>
 
       {kind === "LAB" ? (
-        <Segmented
-          options={MODES}
-          value={mode}
-          onChange={setMode}
-        />
+        <Segmented options={MODES} value={mode} onChange={setMode} />
       ) : (
         <Notice>Scan services are currently booked at the selected center.</Notice>
       )}
 
       <H2>Choose a date</H2>
-      <DayStrip days={days} value={day} onChange={(value) => { setDay(value); setSelectedTime(null); }} />
-      {slots.loading ? <Loading /> : null}
-      {slots.error ? <ErrorBox message={slots.error} onRetry={slots.refresh} /> : null}
+      <DayStrip
+        days={days}
+        value={day}
+        onChange={(value) => {
+          setDay(value);
+          setSelectedTime(null);
+        }}
+      />
+      {slotsLoading ? <Loading /> : null}
+      {slotsError ? <ErrorBox message={slotsError} onRetry={() => loadSlots(false)} /> : null}
       <TimeSlots
         slots={[...slotByTime.keys()]}
         value={selectedTime}
@@ -148,12 +255,31 @@ export default function LabScanBookingScreen({ navigation, route }: AppScreen<"L
         <Card>
           <H2>Sample collection address</H2>
           <Body muted>The collector needs your location to be assigned and find you.</Body>
-          <Button title={coords ? "Location captured" : "Use my current location"} icon={coords ? "checkmark-circle" : "locate-outline"} variant={coords ? "success" : "secondary"} onPress={useMyLocation} loading={locate.busy} />
+          <Button
+            title={coords ? "Location captured" : "Use my current location"}
+            icon={coords ? "checkmark-circle" : "locate-outline"}
+            variant={coords ? "success" : "secondary"}
+            onPress={useMyLocation}
+            loading={locate.busy}
+          />
           {locate.error ? <ErrorBox message={locate.error} /> : null}
-          <TextField label="Full address" required value={address} onChangeText={setAddress} placeholder="House number, street, area, district" multiline />
+          <TextField
+            label="Full address"
+            required
+            value={address}
+            onChangeText={setAddress}
+            placeholder="House number, street, area, district"
+            multiline
+          />
         </Card>
       ) : null}
-      <TextField label="Notes for the center or collector" value={notes} onChangeText={setNotes} placeholder="Optional instructions" multiline />
+      <TextField
+        label="Notes for the center or collector"
+        value={notes}
+        onChangeText={setNotes}
+        placeholder="Optional instructions"
+        multiline
+      />
       {book.error ? <ErrorBox message={book.error} /> : null}
       <Body muted>Booking is for the signed-in patient. Payment is available after booking.</Body>
     </Screen>

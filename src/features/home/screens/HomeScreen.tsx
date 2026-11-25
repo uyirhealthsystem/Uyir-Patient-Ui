@@ -2,6 +2,7 @@ import { useNavigation } from "@react-navigation/native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../auth/useAuth";
+import { ActiveEmergencyBanner } from "../../emergency/components/ActiveEmergencyBanner";
 import { Avatar, Ionicons, Screen, SectionTitle, Tile } from "../../../ui/components";
 import { colors, shadow } from "../../../ui/theme";
 
@@ -35,14 +36,15 @@ export default function HomeScreen() {
       </View>
 
       <Screen>
-        {/* Emergency SOS */}
+        {/* Emergency first: an emergency in progress, then SOS and the ambulance. */}
+        <ActiveEmergencyBanner />
         <Pressable onPress={() => nav.navigate("EmergencySos")} style={({ pressed }) => [s.sos, pressed && { opacity: 0.9 }]}>
           <View style={s.sosIcon}>
             <Ionicons name="medkit" size={22} color={colors.white} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={s.sosTitle}>Emergency SOS</Text>
-            <Text style={s.sosSub}>Find hospitals ready for your emergency now</Text>
+            <Text style={s.sosSub}>Alert a nearby hospital, then get an ambulance</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={colors.danger} />
         </Pressable>

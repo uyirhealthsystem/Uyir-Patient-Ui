@@ -1,26 +1,55 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { labScanApi } from "../../api/endpoints";
+import { errorMessage } from "../../api/client";
 import type { PatientLab, PatientScanCenter } from "../../api/types";
+import { useAuth } from "../../features/auth/useAuth";
 import { money } from "../../lib/format";
-import { useLoad } from "../../lib/hooks";
 import type { AppScreen } from "../../navigation/types";
 import { Body, Button, Card, Empty, ErrorBox, H2, KV, Loading, Notice, Screen } from "../../ui/components";
 import { space } from "../../ui/theme";
 
 export default function LabScanCatalogScreen({ navigation, route }: AppScreen<"LabScanCatalog">) {
   const { kind, centerId, centerName, initialMode } = route.params;
+  const { me } = useAuth();
+  const district = me?.profile?.district?.trim() || undefined;
+
   const [selected, setSelected] = useState<string[]>([]);
-  const { data, error, loading, refreshing, refresh } = useLoad(
-    async () => {
-      if (kind === "LAB") {
-        const labs = await labScanApi.labs();
-        return labs.find((lab) => lab.labId === centerId) ?? null;
+  const [data, setData] = useState<PatientLab | PatientScanCenter | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadCenter = useCallback(
+    async (isRefresh = false) => {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
       }
-      const centers = await labScanApi.scanCenters();
-      return centers.find((center) => center.scanCenterId === centerId) ?? null;
+      setError(null);
+      try {
+        if (kind === "LAB") {
+          const labs = await labScanApi.labs(district);
+          setData(labs.find((lab) => lab.labId === centerId) ?? null);
+        } else {
+          const centers = await labScanApi.scanCenters(district);
+          setData(centers.find((center) => center.scanCenterId === centerId) ?? null);
+        }
+      } catch (e) {
+        setError(errorMessage(e));
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
     },
-    [kind, centerId],
+    [kind, centerId, district],
   );
+
+  useEffect(() => {
+    loadCenter(false);
+  }, [loadCenter]);
+
+  const refresh = () => loadCenter(true);
 
   const items = useMemo(() => {
     if (!data) return [];
@@ -42,10 +71,20 @@ export default function LabScanCatalogScreen({ navigation, route }: AppScreen<"L
   };
 
   if (loading) return <Loading />;
-  if (error || !data) return <Screen><ErrorBox message={error ?? "This center is no longer available."} onRetry={refresh} /></Screen>;
+  if (error || !data) {
+    return (
+      <Screen>
+        <ErrorBox message={error ?? "This center is no longer available."} onRetry={refresh} />
+      </Screen>
+    );
+  }
 
   return (
-    <Screen refreshing={refreshing} onRefresh={refresh} footer={<Button title={`Continue · ${selected.length} selected`} onPress={proceed} disabled={!selected.length} />}>
+    <Screen
+      refreshing={refreshing}
+      onRefresh={refresh}
+      footer={<Button title={`Continue · ${selected.length} selected`} onPress={proceed} disabled={!selected.length} />}
+    >
       <H2>{centerName}</H2>
       <Body muted>{kind === "LAB" ? "Select one or more tests." : "Select one or more scan services."}</Body>
       {items.length === 0 ? <Empty title="No services available" subtitle="This center has no active offerings right now." /> : null}
@@ -59,10 +98,24 @@ export default function LabScanCatalogScreen({ navigation, route }: AppScreen<"L
                 {test.testCatalog.description ? <Body muted>{test.testCatalog.description}</Body> : null}
                 <KV k="Price" v={money(test.price)} />
                 <KV k="Sample" v={test.testCatalog.sampleType} />
-                <KV k="Fasting" v={test.testCatalog.fastingRequirement === "REQUIRED" ? `Required${test.testCatalog.fastingHours ? ` · ${test.testCatalog.fastingHours} hours` : ""}` : test.testCatalog.fastingRequirement === "OPTIONAL" ? "Optional" : "Not required"} />
+                <KV
+                  k="Fasting"
+                  v={
+                    test.testCatalog.fastingRequirement === "REQUIRED"
+                      ? `Required${test.testCatalog.fastingHours ? ` · ${test.testCatalog.fastingHours} hours` : ""}`
+                      : test.testCatalog.fastingRequirement === "OPTIONAL"
+                        ? "Optional"
+                        : "Not required"
+                  }
+                />
                 {test.turnaroundTime != null ? <KV k="Result time" v={`${test.turnaroundTime} hours`} /> : null}
                 {test.testCatalog.preparationInstructions ? <Notice>{test.testCatalog.preparationInstructions}</Notice> : null}
-                <Button title={active ? "Remove from booking" : "Select test"} variant={active ? "secondary" : "outline"} icon={active ? "checkmark-circle" : "add-circle-outline"} onPress={() => toggle(test.labTestId)} />
+                <Button
+                  title={active ? "Remove from booking" : "Select test"}
+                  variant={active ? "secondary" : "outline"}
+                  icon={active ? "checkmark-circle" : "add-circle-outline"}
+                  onPress={() => toggle(test.labTestId)}
+                />
               </Card>
             );
           })
@@ -76,11 +129,18 @@ export default function LabScanCatalogScreen({ navigation, route }: AppScreen<"L
                 {service.turnaroundTime != null ? <KV k="Result time" v={`${service.turnaroundTime} hours`} /> : null}
                 <KV k="Home visit" v={service.homeServiceAvailable ? "Available" : "Not available"} />
                 {service.equipmentRequired ? <Body muted>Equipment is required. The center will confirm availability.</Body> : null}
-                <Button title={active ? "Remove from booking" : "Select scan"} variant={active ? "secondary" : "outline"} icon={active ? "checkmark-circle" : "add-circle-outline"} onPress={() => toggle(service.scanServiceId)} />
+                <Button
+                  title={active ? "Remove from booking" : "Select scan"}
+                  variant={active ? "secondary" : "outline"}
+                  icon={active ? "checkmark-circle" : "add-circle-outline"}
+                  onPress={() => toggle(service.scanServiceId)}
+                />
               </Card>
             );
           })}
-      <Body muted style={{ paddingBottom: space.sm }}>{selected.length ? `${selected.length} selected` : "Select a service to continue."}</Body>
+      <Body muted style={{ paddingBottom: space.sm }}>
+        {selected.length ? `${selected.length} selected` : "Select a service to continue."}
+      </Body>
     </Screen>
   );
 }

@@ -222,8 +222,18 @@ export const homeCareApi = {
 
 // ── labscan /api/v1/labscan/patient (PATIENT only) ─────────────────────────
 export const labScanApi = {
-  labs: () => labScanData(api.get<LabScanEnvelope<PatientLab[]>>("/api/v1/labscan/patient/labs")),
-  scanCenters: () => labScanData(api.get<LabScanEnvelope<PatientScanCenter[]>>("/api/v1/labscan/patient/scan-centers")),
+  labs: (district?: string) =>
+    labScanData(
+      api.get<LabScanEnvelope<PatientLab[]>>("/api/v1/labscan/patient/labs", {
+        query: district ? { district } : undefined,
+      }),
+    ),
+  scanCenters: (district?: string) =>
+    labScanData(
+      api.get<LabScanEnvelope<PatientScanCenter[]>>("/api/v1/labscan/patient/scan-centers", {
+        query: district ? { district } : undefined,
+      }),
+    ),
   timeSlots: (q: { labId?: string; scanCenterId?: string; date?: string }) =>
     labScanData(api.get<LabScanEnvelope<PatientTimeSlot[]>>("/api/v1/labscan/patient/time-slots", { query: q })),
   createAppointment: (body: LabScanAppointmentInput) =>

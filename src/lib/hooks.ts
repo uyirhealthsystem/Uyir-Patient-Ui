@@ -1,5 +1,4 @@
 import { useFocusEffect } from "@react-navigation/native";
-import * as Location from "expo-location";
 import { useCallback, useRef, useState } from "react";
 import { errorMessage } from "../services/http";
 
@@ -79,37 +78,5 @@ export function useAction() {
   return { busy, error, setError, run };
 }
 
-export interface Coords {
-  latitude: number;
-  longitude: number;
-}
-
-/** Current device position (asks for permission). */
-export async function getCurrentPosition(): Promise<Coords> {
-  const { status } = await Location.requestForegroundPermissionsAsync();
-  if (status !== "granted") throw new Error("Location permission is needed. Enable it in Settings, or enter the address manually.");
-  const last = await Location.getLastKnownPositionAsync({ maxAge: 60_000 });
-  const pos = last ?? (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }));
-  return { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-}
-
-/** Best-effort human address for a coordinate. */
-export async function reverseGeocode(c: Coords): Promise<string | undefined> {
-  try {
-    const [r] = await Location.reverseGeocodeAsync(c);
-    if (!r) return undefined;
-    return [r.name, r.street, r.district ?? r.subregion, r.city, r.postalCode].filter(Boolean).join(", ");
-  } catch {
-    return undefined;
-  }
-}
-
-/** Coordinates for a typed address (used for drop locations). */
-export async function geocode(address: string): Promise<Coords | undefined> {
-  try {
-    const [r] = await Location.geocodeAsync(address);
-    return r ? { latitude: r.latitude, longitude: r.longitude } : undefined;
-  } catch {
-    return undefined;
-  }
-}
+// Location helpers live in ./location; re-exported for existing callers.
+export { geocode, getCurrentPosition, reverseGeocode, type Coords } from "./location";
