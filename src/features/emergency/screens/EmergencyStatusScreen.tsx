@@ -1,7 +1,7 @@
 // SOS, steps 4-6: the hospital accepts (or not) -> "Need an ambulance?" ->
 // the nearest driver picks the patient up and takes them to that hospital -> pay.
 // Tracking and payment themselves are on AmbulanceDetailScreen.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Linking, Text, View } from "react-native";
 import { useAppDispatch, useAppSelector } from "../../../app/hooks";
 import { dateTime, hospitalAddress, money, statusTone } from "../../../lib/format";
@@ -19,7 +19,7 @@ import { useHospitalQuery } from "../../hospital/api";
 import { addressCoords } from "../../hospital/types";
 import { LocationCard } from "../../location/LocationCard";
 import { useCurrentLocation } from "../../location/useCurrentLocation";
-import { useCancelEmergencyBookingMutation, useEmergencyConditionsQuery, useEmergencyHistoryQuery } from "../api";
+import { useCancelEmergencyBookingMutation, useEmergencyConditionsQuery, useEmergencyHistoryQuery, useLinkEmergencyAmbulanceMutation } from "../api";
 import { ambulanceDeclined, ambulanceWanted, hospitalRejected } from "../emergencySlice";
 import { toAmbulanceEmergencyType, type EmergencyBooking } from "../types";
 
@@ -42,6 +42,9 @@ const AMB_TEXT: Partial<Record<AmbulanceBookingStatus, string>> = {
  * emergency ride booked after the alert, going to this hospital.
  */
 function findLinkedAmbulance(rows: AmbulanceBooking[] | undefined, booking: EmergencyBooking, hospital: { latitude: number; longitude: number } | null) {
+  // The ride the hospital already knows about, unless it ended and a newer one was booked.
+  const known = booking.ambulanceBookingId ? rows?.find((r) => r.id === booking.ambulanceBookingId) : undefined;
+  if (known && !AMB_FAILED.includes(known.status)) return known;
   return rows
     ?.filter((r) => r.type === "EMERGENCY" && r.createdAt >= booking.requestedAt)
     .filter((r) => !hospital || (r.drop && distanceKm(hospital, { latitude: r.drop.lat, longitude: r.drop.lng }) < 0.5))
@@ -98,6 +101,19 @@ export default function EmergencyStatusScreen({ navigation, route }: AppScreen<"
   const [ambType, setAmbType] = useState<AmbulanceType | null>(null);
   const [bookAmbulance] = useBookEmergencyAmbulanceMutation();
   const [cancelBooking] = useCancelEmergencyBookingMutation();
+  const [linkAmbulance] = useLinkEmergencyAmbulanceMutation();
+
+  // Let the hospital follow the ambulance: tell it which ride is bringing the patient. Booking the ride
+  // links it straight away; this catches up when that call failed or the app was closed in between.
+  const linkTried = useRef<string | null>(null);
+  const emergencyOpen = booking?.status === "REQUESTED" || booking?.status === "ACCEPTED";
+  useEffect(() => {
+    if (!emergencyOpen || !linked || !ambulanceActive || booking?.ambulanceBookingId === linked.id) return;
+    if (linkTried.current === linked.id) return;
+    linkTried.current = linked.id;
+    linkAmbulance({ id: bookingId, ambulanceBookingId: linked.id }).unwrap().catch(() => undefined);
+  }, [emergencyOpen, linked, ambulanceActive, booking?.ambulanceBookingId, bookingId, linkAmbulance]);
+  const hospitalFollowing = !!linked && booking?.ambulanceBookingId === linked.id;
   const send = useAction();
   const act = useAction();
 
@@ -126,6 +142,9 @@ export default function EmergencyStatusScreen({ navigation, route }: AppScreen<"
         contactName: booking.patientName,
         contactPhone: booking.patientPhone,
       }).unwrap();
+      // Best effort: the effect above retries if this fails.
+      linkTried.current = amb.id;
+      linkAmbulance({ id: bookingId, ambulanceBookingId: amb.id }).unwrap().catch(() => (linkTried.current = null));
       navigation.navigate("AmbulanceDetail", { id: amb.id });
     });
 
@@ -210,6 +229,9 @@ export default function EmergencyStatusScreen({ navigation, route }: AppScreen<"
                 <Badge label={humanize(linked.status)} tone={statusTone(linked.status)} />
               </Row>
               {AMB_TEXT[linked.status] ? <Body muted>{AMB_TEXT[linked.status]}</Body> : null}
+              {hospitalFollowing && AMB_LIVE.includes(linked.status) && linked.status !== "PAYMENT_PENDING" ? (
+                <Notice tone="green" icon="eye-outline">{`${hospitalName} can see your ambulance on the way and will be ready when you arrive.`}</Notice>
+              ) : null}
               {ambPayDue && linked.status !== "PAYMENT_PENDING" ? (
                 <Notice tone="amber">Pay for the ambulance now. Your pickup OTP appears once it's paid; the driver needs it to start the ride.</Notice>
               ) : null}

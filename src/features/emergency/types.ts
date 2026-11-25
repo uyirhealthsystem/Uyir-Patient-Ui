@@ -38,6 +38,8 @@ export interface EmergencyBooking {
   cancelledAt?: string | null;
   cancellationReason?: string | null;
   completedAt?: string | null;
+  /** The ambulance bringing the patient, once the patient has linked it (PATCH {id}/ambulance). */
+  ambulanceBookingId?: string | null;
 }
 
 // The ambulance service has 6 emergency types; the hospital has 16 conditions.

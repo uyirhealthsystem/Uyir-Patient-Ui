@@ -19,6 +19,14 @@ export const emergencyApi = baseApi.injectEndpoints({
       query: (body) => ({ url: "/api/v1/hospital/emergency-bookings", method: "POST", body }),
       invalidatesTags: ["EmergencyBookings"],
     }),
+    /**
+     * Tells the hospital which ambulance is bringing the patient, so it can follow it live.
+     * The ambulance booking must be the same patient's; linking again replaces it.
+     */
+    linkEmergencyAmbulance: b.mutation<EmergencyBooking, { id: string; ambulanceBookingId: string }>({
+      query: ({ id, ambulanceBookingId }) => ({ url: `/api/v1/hospital/emergency-bookings/${id}/ambulance`, method: "PATCH", body: { ambulanceBookingId } }),
+      invalidatesTags: ["EmergencyBookings"],
+    }),
     cancelEmergencyBooking: b.mutation<EmergencyBooking, { id: string; reason: string }>({
       query: ({ id, reason }) => ({ url: `/api/v1/hospital/emergency-bookings/${id}/cancel`, method: "PATCH", body: { reason } }),
       invalidatesTags: ["EmergencyBookings"],
@@ -38,6 +46,7 @@ export const {
   useEmergencyConditionsQuery,
   useLazyEmergencySosQuery,
   useCreateEmergencyBookingMutation,
+  useLinkEmergencyAmbulanceMutation,
   useCancelEmergencyBookingMutation,
   useEmergencyHistoryQuery,
 } = emergencyApi;
