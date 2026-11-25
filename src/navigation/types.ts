@@ -1,5 +1,6 @@
 import type { NavigatorScreenParams } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import type { LabScanAppointmentMode, LabScanAppointmentType } from "../api/types";
 import type { LoginChallenge } from "../features/auth/types";
 import type { FamilyMember } from "../features/profile/types";
 import type { MedicalKind } from "../features/records/api";
@@ -31,6 +32,14 @@ export type AppStackParams = {
   HomeCare: undefined;
   HomeCareBook: { serviceId: string };
   HomeCareDetail: { id: string };
+  // Lab & Scan / patient sample collection
+  LabScan: undefined;
+  SampleCollection: undefined;
+  LabScanCatalog: { kind: LabScanAppointmentType; centerId: string; centerName: string; initialMode?: LabScanAppointmentMode };
+  LabScanBooking: { kind: LabScanAppointmentType; centerId: string; centerName: string; itemIds: string[]; mode?: LabScanAppointmentMode };
+  LabScanDetail: { id: string };
+  LabScanResults: { id: string };
+  SampleCollectorTracking: { id: string };
   // Health records (userservice)
   MedicalList: { kind: MedicalKind };
   HealthRecords: undefined;

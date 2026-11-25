@@ -60,6 +60,8 @@ export default function HomeScreen() {
           <Tile icon="business-outline" title="Hospitals" subtitle="Search & nearby" onPress={() => nav.navigate("Hospitals")} />
           <Tile icon="car-outline" title="Ambulance" subtitle="Emergency or scheduled" tone="red" onPress={() => nav.navigate("AmbulanceBook")} />
           <Tile icon="home-outline" title="Home care" subtitle="Nurse, physio, caretaker" tone="green" onPress={() => nav.navigate("HomeCare")} />
+          <Tile icon="flask-outline" title="Lab & Scan" subtitle="Tests and imaging" tone="violet" onPress={() => nav.navigate("LabScan")} />
+          <Tile icon="beaker-outline" title="Sample collection" subtitle="Book a home visit" tone="blue" onPress={() => nav.navigate("SampleCollection")} />
         </View>
 
         <SectionTitle title="My health" />
