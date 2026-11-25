@@ -1,13 +1,11 @@
-// hospitalservice /api/v1/hospital (patient side only).
+// hospitalservice /api/v1/hospital (patient side only): hospitals, doctors, appointments.
+// Emergency SOS endpoints are in features/emergency/api.ts.
 import { baseApi } from "../../services/baseApi";
 import type { PageResponse } from "../../services/types";
 import type {
   Appointment,
   AppointmentRequest,
   Doctor,
-  EmergencyBooking,
-  EmergencyCondition,
-  EmergencyHospitalSuggestion,
   Hospital,
   HospitalType,
   SpecialtyCategory,
@@ -42,26 +40,6 @@ export const hospitalApi = baseApi.injectEndpoints({
       }),
     }),
 
-    emergencyConditions: b.query<EmergencyCondition[], void>({
-      query: () => ({ url: "/api/v1/hospital/emergency-conditions" }),
-      keepUnusedDataFor: 3600,
-    }),
-    emergencySos: b.query<EmergencyHospitalSuggestion[], { emergencyType: string; latitude: number; longitude: number; radiusKm?: number }>({
-      query: ({ radiusKm = 10, ...q }) => ({ url: "/api/v1/hospital/emergency-sos", params: { ...q, radiusKm } }),
-    }),
-    createEmergencyBooking: b.mutation<EmergencyBooking, { hospitalId: string; emergencyType: string; patientName: string; patientPhone: string }>({
-      query: (body) => ({ url: "/api/v1/hospital/emergency-bookings", method: "POST", body }),
-      invalidatesTags: ["EmergencyBookings"],
-    }),
-    cancelEmergencyBooking: b.mutation<EmergencyBooking, { id: string; reason?: string }>({
-      query: ({ id, reason }) => ({ url: `/api/v1/hospital/emergency-bookings/${id}/cancel`, method: "PATCH", body: { reason } }),
-      invalidatesTags: ["EmergencyBookings"],
-    }),
-    emergencyHistory: b.query<EmergencyBooking[], void>({
-      query: () => ({ url: "/api/v1/hospital/emergency-bookings/history" }),
-      providesTags: ["EmergencyBookings"],
-    }),
-
     availability: b.query<TokenAvailability, { hospitalId: string; doctorId: string; date: string }>({
       query: (params) => ({ url: "/api/v1/hospital/doctor-appointments/availability", params }),
       providesTags: ["Appointments"],
@@ -89,11 +67,6 @@ export const {
   useDoctorQuery,
   useSearchDoctorsQuery,
   useLazySearchDoctorsQuery,
-  useEmergencyConditionsQuery,
-  useLazyEmergencySosQuery,
-  useCreateEmergencyBookingMutation,
-  useCancelEmergencyBookingMutation,
-  useEmergencyHistoryQuery,
   useAvailabilityQuery,
   useBookAppointmentMutation,
   useAppointmentHistoryQuery,

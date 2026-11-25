@@ -8,7 +8,16 @@ export interface Address {
   state: string;
   country: string;
   pincode: string;
+  /** GeoJSON point: coordinates = [longitude, latitude] (x = lng, y = lat). */
   location?: { x?: number; y?: number; coordinates?: number[] } | null;
+}
+
+/** A hospital address -> { latitude, longitude }, or null when it has no location. */
+export function addressCoords(a: Address | null | undefined): { latitude: number; longitude: number } | null {
+  const l = a?.location;
+  const lng = l?.coordinates?.[0] ?? l?.x;
+  const lat = l?.coordinates?.[1] ?? l?.y;
+  return typeof lat === "number" && typeof lng === "number" ? { latitude: lat, longitude: lng } : null;
 }
 
 export interface ContactDetails {
@@ -63,35 +72,6 @@ export interface Specialty {
 export interface SpecialtyCategory {
   category: string;
   specialties: Specialty[];
-}
-
-export interface EmergencyCondition {
-  code: string;
-  name: string;
-  icon: string;
-}
-
-export interface EmergencyHospitalSuggestion {
-  hospitalId: string;
-  hospitalName: string;
-  address: Address;
-  contactDetails: ContactDetails;
-  availableDoctorCount: number;
-  availableSpecialties: string[];
-}
-
-export type EmergencyBookingStatus = "REQUESTED" | "ACCEPTED" | "REJECTED" | "CANCELLED" | "COMPLETED";
-
-export interface EmergencyBooking {
-  id: string;
-  patientName: string;
-  patientPhone: string;
-  hospitalId: string;
-  emergencyType: string;
-  status: EmergencyBookingStatus;
-  requestedAt: string;
-  rejectionReason?: string | null;
-  cancellationReason?: string | null;
 }
 
 export type PatientRelationship = "SPOUSE" | "PARENT" | "CHILD" | "SIBLING" | "GRANDPARENT" | "GRANDCHILD" | "OTHER";

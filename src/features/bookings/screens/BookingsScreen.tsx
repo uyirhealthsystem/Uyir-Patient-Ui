@@ -3,16 +3,12 @@ import { useMemo, useState } from "react";
 import { Alert } from "react-native";
 import { errorMessage } from "../../../services/http";
 import { useAmbulanceBookingsQuery } from "../../ambulance/api";
+import { paymentDue } from "../../ambulance/types";
 import { useCareBookingsQuery } from "../../homecare/api";
-import {
-  useAppointmentHistoryQuery,
-  useCancelAppointmentMutation,
-  useCancelEmergencyBookingMutation,
-  useDoctorQuery,
-  useEmergencyHistoryQuery,
-  useHospitalQuery,
-} from "../../hospital/api";
-import type { Appointment, EmergencyBooking } from "../../hospital/types";
+import { useCancelEmergencyBookingMutation, useEmergencyHistoryQuery } from "../../emergency/api";
+import type { EmergencyBooking } from "../../emergency/types";
+import { useAppointmentHistoryQuery, useCancelAppointmentMutation, useDoctorQuery, useHospitalQuery } from "../../hospital/api";
+import type { Appointment } from "../../hospital/types";
 import { dateTime, money, statusTone } from "../../../lib/format";
 import { useScreenQuery } from "../../../lib/hooks";
 import { Badge, Body, Button, Card, ChipGroup, Empty, ErrorBox, H2, KV, Loading, Row, Screen, humanize } from "../../../ui/components";
@@ -114,6 +110,7 @@ function Ambulance() {
           <KV k="Pickup" v={b.pickup.address} />
           <KV k={b.scheduledAt ? "Scheduled" : "Booked"} v={dateTime(b.scheduledAt ?? b.createdAt)} />
           <KV k="Fare" v={b.fare != null ? money(b.fare) : undefined} />
+          {paymentDue(b) ? <Body style={{ fontWeight: "600" }}>Payment due — tap to pay and get your pickup OTP</Body> : null}
         </Card>
       ))}
     </>
@@ -146,6 +143,7 @@ function HomeCare() {
 }
 
 function Emergency() {
+  const nav = useNavigation();
   const q = useScreenQuery(useEmergencyHistoryQuery());
   const [cancelEmergency] = useCancelEmergencyBookingMutation();
   const rows = useMemo(() => newestFirst(q.data ?? [], (r) => r.requestedAt), [q.data]);
@@ -173,7 +171,7 @@ function Emergency() {
   return (
     <>
       {rows.map((b) => (
-        <Card key={b.id}>
+        <Card key={b.id} onPress={() => nav.navigate("EmergencyStatus", { bookingId: b.id, hospitalId: b.hospitalId })}>
           <Row style={{ justifyContent: "space-between" }}>
             <H2>{b.emergencyType}</H2>
             <Badge label={b.status} tone={statusTone(b.status)} />

@@ -23,6 +23,7 @@ export type AppStackParams = {
   BookAppointment: { hospitalId: string; doctorId: string };
   // Emergency
   EmergencySos: undefined;
+  EmergencyStatus: { bookingId: string; hospitalId: string };
   // Ambulance
   AmbulanceBook: { mode?: "EMERGENCY" | "SCHEDULED" } | undefined;
   AmbulanceDetail: { id: string };
