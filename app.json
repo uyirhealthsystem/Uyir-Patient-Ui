@@ -42,7 +42,16 @@
       ],
       "./plugins/withCmakeVersion",
       "expo-font",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true,
+            "extraProguardRules": "# WorkManager (pulled in by react-native-maps) loads Room's generated WorkDatabase_Impl by name at startup.\n# Without these, R8 strips/rewrites it and the release app crashes on launch.\n-keep class androidx.work.** { *; }\n-keep class androidx.room.** { *; }\n-keep class * extends androidx.room.RoomDatabase { *; }"
+          }
+        }
+      ]
     ]
   }
 }
