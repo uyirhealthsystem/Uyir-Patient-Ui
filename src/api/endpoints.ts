@@ -233,93 +233,22 @@ export const homeCareApi = {
   cancel: (id: string, reason?: string) => api.post<CareBooking>(`/api/v1/hbc/patient/bookings/${id}/cancel`, { reason }),
 };
 
-// ── labscan /api/v1/labscan ───────────────────────────────────────────────
-
-// ── labscan /api/v1/labscan ───────────────────────────────────────────────
-// export const labScanApi = {
-//   labs: (districtId?: string) =>
-//     labScanData(
-//       districtId
-//         ? api.get<LabScanEnvelope<PatientLab[]>>(
-//             `/api/v1/labscan/labs/district/${encodeURIComponent(districtId)}`,
-//             labScanOpts(),
-//           )
-//         : api.get<LabScanEnvelope<PatientLab[]>>("/api/v1/labscan/labs", labScanOpts()),
-//     ),
-//   labById: (labId: string) =>
-//     labScanData(api.get<LabScanEnvelope<PatientLab>>(`/api/v1/labscan/labs/${labId}`, labScanOpts())),
-//   scanCenters: (district?: string) =>
-//     labScanData(
-//       district
-//         ? api.get<LabScanEnvelope<PatientScanCenter[]>>(
-//             `/api/v1/labscan/scancenters/district/${encodeURIComponent(district)}`,
-//             labScanOpts(),
-//           )
-//         : api.get<LabScanEnvelope<PatientScanCenter[]>>("/api/v1/labscan/scan-centers", labScanOpts()),
-//     ),
-//   timeSlots: (q: { labId?: string; scanCenterId?: string; date?: string }) =>
-//     labScanData(api.get<LabScanEnvelope<PatientTimeSlot[]>>("/api/v1/labscan/timeslots", labScanOpts({ query: q }))),
-//   createAppointment: (body: LabScanAppointmentInput) =>
-//     labScanData(api.post<LabScanEnvelope<LabScanAppointment>>("/api/v1/labscan/appointment", body, labScanOpts())),
-//   appointmentsByPatient: (patientId: string) =>
-//     labScanData(
-//       api.get<LabScanEnvelope<LabScanAppointment[]>>(
-//         `/api/v1/labscan/appointment/patient/${encodeURIComponent(patientId)}`,
-//         labScanOpts(),
-//       ),
-//     ),
-//   appointments: async () => {
-//     const patientId = getSessionUser()?.id;
-//     if (!patientId) return [];
-//     return labScanData(
-//       api.get<LabScanEnvelope<LabScanAppointment[]>>(
-//         `/api/v1/labscan/appointment/patient/${encodeURIComponent(patientId)}`,
-//         labScanOpts(),
-//       ),
-//     );
-//   },
-//   appointment: (id: string) =>
-//     labScanData(api.get<LabScanEnvelope<LabScanAppointment>>(`/api/v1/labscan/appointment/${id}`, labScanOpts())),
-//   reports: (id: string) =>
-//     labScanData(
-//       api.get<LabScanEnvelope<LabScanReport[]>>(`/api/v1/labscan/report/appointment/${id}`, labScanOpts()),
-//     ),
+// ── labscan /api/v1/labscan (patient-scoped) ───────────────────────────────
+// Previous / legacy labScanApi reference (unscoped routes):
+// export const legacyLabScanApi = {
+//   appointments: () =>
+//     labScanData(api.get<LabScanEnvelope<LabScanAppointment[]>>("/api/v1/labscan/appointments", labScanOpts())),
 //   homeCollections: async () =>
 //     (
 //       await labScanData(
 //         api.get<LabScanEnvelope<{ total: number; bookings: LabScanAppointment[] }>>(
-//           "/api/v1/labscan/homecollection/me/bookings",
+//           "/api/v1/labscan/home-collections",
 //           labScanOpts(),
 //         ),
 //       )
 //     ).bookings,
-//   homeCollectionHistory: async () =>
-//     (
-//       await labScanData(
-//         api.get<LabScanEnvelope<{ total: number; bookings: LabScanAppointment[] }>>(
-//           "/api/v1/labscan/homecollection/me/history",
-//           labScanOpts(),
-//         ),
-//       )
-//     ).bookings,
-//   homeCollection: (id: string) =>
-//     labScanData(api.get<LabScanEnvelope<LabScanAppointment>>(`/api/v1/labscan/homecollection/me/${id}`, labScanOpts())),
-//   homeCollectionTracking: (id: string) =>
-//     labScanData(
-//       api.get<LabScanEnvelope<PatientHomeCollectionTracking>>(
-//         `/api/v1/labscan/homecollectiontracking/homecollection/${id}`,
-//         labScanOpts(),
-//       ),
-//     ),
-//   createPaymentLink: (appointmentId: string) =>
-//     labScanData(
-//       api.post<LabScanEnvelope<LabScanPayment>>(
-//         `/api/v1/labscan/appointments/${appointmentId}/payment`,
-//         {},
-//         labScanOpts(),
-//       ),
-//     ),
 // };
+
 export const labScanApi = {
   labs: (districtId?: string) =>
     labScanData(
@@ -331,7 +260,12 @@ export const labScanApi = {
         : api.get<LabScanEnvelope<PatientLab[]>>("/api/v1/labscan/labs", labScanOpts()),
     ),
   labById: (labId: string) =>
-    labScanData(api.get<LabScanEnvelope<PatientLab>>(`/api/v1/labscan/labs/${labId}`, labScanOpts())),
+    labScanData(
+      api.get<LabScanEnvelope<PatientLab>>(
+        `/api/v1/labscan/labs/${encodeURIComponent(labId)}`,
+        labScanOpts(),
+      ),
+    ),
   scanCenters: (district?: string) =>
     labScanData(
       district
@@ -342,20 +276,49 @@ export const labScanApi = {
         : api.get<LabScanEnvelope<PatientScanCenter[]>>("/api/v1/labscan/scan-centers", labScanOpts()),
     ),
   timeSlots: (q: { labId?: string; scanCenterId?: string; date?: string }) =>
-    labScanData(api.get<LabScanEnvelope<PatientTimeSlot[]>>("/api/v1/labscan/timeslots", labScanOpts({ query: q }))),
+    labScanData(
+      api.get<LabScanEnvelope<PatientTimeSlot[]>>("/api/v1/labscan/timeslots", labScanOpts({ query: q })),
+    ),
   createAppointment: (body: LabScanAppointmentInput) =>
-    labScanData(api.post<LabScanEnvelope<LabScanAppointment>>("/api/v1/labscan/appointment", body, labScanOpts())),
-  appointments: () =>
-    labScanData(api.get<LabScanEnvelope<LabScanAppointment[]>>("/api/v1/labscan/appointments", labScanOpts())),
+    labScanData(
+      api.post<LabScanEnvelope<LabScanAppointment>>("/api/v1/labscan/appointment", body, labScanOpts()),
+    ),
+  appointmentsByPatient: (patientId: string) =>
+    labScanData(
+      api.get<LabScanEnvelope<LabScanAppointment[]>>(
+        `/api/v1/labscan/appointment/patient/${encodeURIComponent(patientId)}`,
+        labScanOpts(),
+      ),
+    ),
+  appointments: async (): Promise<LabScanAppointment[]> => {
+    const patientId = getSessionUser()?.id;
+    if (!patientId) return [];
+    return labScanData(
+      api.get<LabScanEnvelope<LabScanAppointment[]>>(
+        `/api/v1/labscan/appointment/patient/${encodeURIComponent(patientId)}`,
+        labScanOpts(),
+      ),
+    );
+  },
   appointment: (id: string) =>
-    labScanData(api.get<LabScanEnvelope<LabScanAppointment>>(`/api/v1/labscan/appointments/${id}`, labScanOpts())),
+    labScanData(
+      api.get<LabScanEnvelope<LabScanAppointment>>(
+        `/api/v1/labscan/appointment/${encodeURIComponent(id)}`,
+        labScanOpts(),
+      ),
+    ),
   reports: (id: string) =>
-    labScanData(api.get<LabScanEnvelope<LabScanReport[]>>(`/api/v1/labscan/appointments/${id}/reports`, labScanOpts())),
+    labScanData(
+      api.get<LabScanEnvelope<LabScanReport[]>>(
+        `/api/v1/labscan/report/appointment/${encodeURIComponent(id)}`,
+        labScanOpts(),
+      ),
+    ),
   homeCollections: async () =>
     (
       await labScanData(
         api.get<LabScanEnvelope<{ total: number; bookings: LabScanAppointment[] }>>(
-          "/api/v1/labscan/home-collections",
+          "/api/v1/labscan/homecollection/me/bookings",
           labScanOpts(),
         ),
       )
@@ -364,30 +327,34 @@ export const labScanApi = {
     (
       await labScanData(
         api.get<LabScanEnvelope<{ total: number; bookings: LabScanAppointment[] }>>(
-          "/api/v1/labscan/home-collections/history",
+          "/api/v1/labscan/homecollection/me/history",
           labScanOpts(),
         ),
       )
     ).bookings,
   homeCollection: (id: string) =>
-    labScanData(api.get<LabScanEnvelope<LabScanAppointment>>(`/api/v1/labscan/home-collections/${id}`, labScanOpts())),
+    labScanData(
+      api.get<LabScanEnvelope<LabScanAppointment>>(
+        `/api/v1/labscan/homecollection/me/${encodeURIComponent(id)}`,
+        labScanOpts(),
+      ),
+    ),
   homeCollectionTracking: (id: string) =>
     labScanData(
       api.get<LabScanEnvelope<PatientHomeCollectionTracking>>(
-        `/api/v1/labscan/home-collections/${id}/tracking`,
+        `/api/v1/labscan/homecollectiontracking/homecollection/${encodeURIComponent(id)}`,
         labScanOpts(),
       ),
     ),
   createPaymentLink: (appointmentId: string) =>
     labScanData(
       api.post<LabScanEnvelope<LabScanPayment>>(
-        `/api/v1/labscan/appointments/${appointmentId}/payment`,
+        `/api/v1/labscan/appointments/${encodeURIComponent(appointmentId)}/payment`,
         {},
         labScanOpts(),
       ),
     ),
 };
-
 
 // ── payment-service  /api/payments (read own payments) ──────────────────────
 export const paymentsApi = {
