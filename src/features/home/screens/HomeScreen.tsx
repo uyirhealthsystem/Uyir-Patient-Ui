@@ -1,5 +1,7 @@
 import { useNavigation } from "@react-navigation/native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+// Book care tiles and the "Call an ambulance now" button are hidden while we
+// build out the Emergency SOS module first; they come back feature by feature.
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../auth/useAuth";
 import { ActiveEmergencyBanner } from "../../emergency/components/ActiveEmergencyBanner";
@@ -36,33 +38,28 @@ export default function HomeScreen() {
       </View>
 
       <Screen>
-        {/* Emergency first: an emergency in progress, then SOS and the ambulance. */}
+        {/* Emergency first: an emergency in progress, then the SOS hero card. */}
         <ActiveEmergencyBanner />
-        <Pressable onPress={() => nav.navigate("EmergencySos")} style={({ pressed }) => [s.sos, pressed && { opacity: 0.9 }]}>
-          <View style={s.sosIcon}>
-            <Ionicons name="medkit" size={22} color={colors.white} />
+        <Pressable
+          onPress={() => nav.navigate("EmergencySos")}
+          accessibilityRole="button"
+          accessibilityLabel="Emergency SOS"
+          style={({ pressed }) => [s.sos, pressed && { transform: [{ scale: 0.98 }], opacity: 0.95 }]}
+        >
+          <View style={s.sosHaloOuter}>
+            <View style={s.sosHaloInner}>
+              <View style={s.sosIcon}>
+                <Ionicons name="medkit" size={38} color={colors.danger} />
+              </View>
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.sosTitle}>Emergency SOS</Text>
-            <Text style={s.sosSub}>Alert a nearby hospital, then get an ambulance</Text>
+          <Text style={s.sosTitle}>Emergency SOS</Text>
+          <Text style={s.sosSub}>Alert a nearby hospital and get an ambulance on the way</Text>
+          <View style={s.sosCta}>
+            <Text style={s.sosCtaText}>Tap for help</Text>
+            <Ionicons name="arrow-forward" size={16} color={colors.danger} />
           </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.danger} />
         </Pressable>
-
-        <Pressable onPress={() => nav.navigate("AmbulanceBook", { mode: "EMERGENCY" })} style={({ pressed }) => [s.amb, pressed && { opacity: 0.9 }]}>
-          <Ionicons name="call" size={18} color={colors.white} />
-          <Text style={s.ambText}>Call an ambulance now</Text>
-        </Pressable>
-
-        <SectionTitle title="Book care" />
-        <View style={s.grid}>
-          <Tile icon="medical-outline" title="Doctor" subtitle="In-person visit" onPress={() => nav.navigate("Doctors")} />
-          <Tile icon="business-outline" title="Hospitals" subtitle="Search & nearby" onPress={() => nav.navigate("Hospitals")} />
-          <Tile icon="car-outline" title="Ambulance" subtitle="Emergency or scheduled" tone="red" onPress={() => nav.navigate("AmbulanceBook")} />
-          <Tile icon="home-outline" title="Home care" subtitle="Nurse, physio, caretaker" tone="green" onPress={() => nav.navigate("HomeCare")} />
-          <Tile icon="flask-outline" title="Lab & Scan" subtitle="Tests and imaging" tone="violet" onPress={() => nav.navigate("LabScan")} />
-          <Tile icon="beaker-outline" title="Sample collection" subtitle="Book a home visit" tone="blue" onPress={() => nav.navigate("SampleCollection")} />
-        </View>
 
         <SectionTitle title="My health" />
         <View style={s.grid}>
@@ -90,28 +87,46 @@ const s = StyleSheet.create({
   title: { fontSize: 20, fontWeight: "800", color: colors.text },
   subtitle: { fontSize: 12.5, color: colors.textMuted, marginTop: 1 },
   sos: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    backgroundColor: colors.dangerSoft,
-    borderColor: colors.dangerLine,
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 14,
+    backgroundColor: colors.danger,
+    borderRadius: 24,
+    paddingVertical: 28,
+    paddingHorizontal: 20,
     ...shadow,
+    shadowColor: colors.danger,
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 8,
   },
-  sosIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: colors.danger, alignItems: "center", justifyContent: "center" },
-  sosTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
-  sosSub: { fontSize: 12.5, color: colors.textMuted, marginTop: 2 },
-  amb: {
-    flexDirection: "row",
+  sosHaloOuter: {
+    width: 124,
+    height: 124,
+    borderRadius: 62,
+    backgroundColor: "rgba(255,255,255,0.12)",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    backgroundColor: colors.danger,
-    paddingVertical: 13,
-    borderRadius: 12,
   },
-  ambText: { color: colors.white, fontSize: 15, fontWeight: "700" },
+  sosHaloInner: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "rgba(255,255,255,0.22)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sosIcon: { width: 76, height: 76, borderRadius: 38, backgroundColor: colors.white, alignItems: "center", justifyContent: "center" },
+  sosTitle: { fontSize: 26, fontWeight: "900", color: colors.white, marginTop: 18, letterSpacing: 0.3 },
+  sosSub: { fontSize: 14, color: "rgba(255,255,255,0.9)", marginTop: 6, textAlign: "center", lineHeight: 20 },
+  sosCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 18,
+    backgroundColor: colors.white,
+    paddingHorizontal: 22,
+    paddingVertical: 11,
+    borderRadius: 999,
+  },
+  sosCtaText: { color: colors.danger, fontSize: 15, fontWeight: "800" },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
 });

@@ -7,6 +7,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import MapView, { Marker, Polyline, type LatLng } from "react-native-maps";
 import { colors, font, radius } from "../../../ui/theme";
 import type { AmbulanceTrack } from "../types";
+import { useRoadRoute } from "../useRoadRoute";
 
 const EDGE = { top: 60, right: 48, bottom: 60, left: 48 };
 
@@ -29,11 +30,14 @@ export function AmbulanceMap({ track, height = 260 }: { track: AmbulanceTrack; h
   const onBoard = b.status === "PICKED_UP";
   // Where the ambulance is heading now: the patient, then (once aboard) the drop.
   const target = onBoard ? drop : pickup;
+  // Road routes: the leg the ambulance is driving now, and (before pickup) the next leg to the drop.
+  const route = useRoadRoute(ambulance, target);
+  const nextLeg = useRoadRoute(onBoard ? null : pickup, onBoard ? null : drop);
 
   const points = useMemo(
-    () => [ambulance, onBoard ? null : pickup, drop].filter((p): p is LatLng => !!p),
+    () => [ambulance, onBoard ? null : pickup, drop, ...(route ?? [])].filter((p): p is LatLng => !!p),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [ambulance?.latitude, ambulance?.longitude, onBoard, b.pickup.lat, b.pickup.lng, b.drop?.lat, b.drop?.lng],
+    [ambulance?.latitude, ambulance?.longitude, onBoard, b.pickup.lat, b.pickup.lng, b.drop?.lat, b.drop?.lng, route],
   );
 
   const frame = () => {
@@ -73,8 +77,14 @@ export function AmbulanceMap({ track, height = 260 }: { track: AmbulanceTrack; h
             <Pin icon="medkit" color={colors.danger} />
           </Marker>
         ) : null}
+        {nextLeg ? <Polyline coordinates={nextLeg} strokeColor={colors.primary} strokeWidth={4} lineDashPattern={[2, 6]} zIndex={1} /> : null}
         {ambulance && target ? (
-          <Polyline coordinates={[ambulance, target]} strokeColor={colors.danger} strokeWidth={3} lineDashPattern={[8, 6]} />
+          route ? (
+            <Polyline coordinates={route} strokeColor={colors.danger} strokeWidth={5} zIndex={2} />
+          ) : (
+            // Routing unavailable (or still loading): straight line so the direction is still clear.
+            <Polyline coordinates={[ambulance, target]} strokeColor={colors.danger} strokeWidth={3} lineDashPattern={[8, 6]} zIndex={2} />
+          )
         ) : null}
       </MapView>
 
