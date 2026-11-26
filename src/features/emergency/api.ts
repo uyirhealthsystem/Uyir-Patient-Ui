@@ -1,6 +1,6 @@
 // hospitalservice emergency SOS (patient side).
 import { baseApi } from "../../services/baseApi";
-import type { EmergencyBooking, EmergencyCondition, EmergencyHospitalSuggestion } from "./types";
+import type { ArrivalMode, EmergencyBooking, EmergencyCondition, EmergencyHospitalSuggestion } from "./types";
 
 export const emergencyApi = baseApi.injectEndpoints({
   endpoints: (b) => ({
@@ -27,6 +27,11 @@ export const emergencyApi = baseApi.injectEndpoints({
       query: ({ id, ambulanceBookingId }) => ({ url: `/api/v1/hospital/emergency-bookings/${id}/ambulance`, method: "PATCH", body: { ambulanceBookingId } }),
       invalidatesTags: ["EmergencyBookings"],
     }),
+    /** How the patient is getting to the hospital. OTHER_AMBULANCE / OWN_WAY: the hospital follows the patient's phone. */
+    setEmergencyArrivalMode: b.mutation<EmergencyBooking, { id: string; mode: ArrivalMode }>({
+      query: ({ id, mode }) => ({ url: `/api/v1/hospital/emergency-bookings/${id}/arrival-mode`, method: "PATCH", body: { mode } }),
+      invalidatesTags: ["EmergencyBookings"],
+    }),
     cancelEmergencyBooking: b.mutation<EmergencyBooking, { id: string; reason: string }>({
       query: ({ id, reason }) => ({ url: `/api/v1/hospital/emergency-bookings/${id}/cancel`, method: "PATCH", body: { reason } }),
       invalidatesTags: ["EmergencyBookings"],
@@ -47,6 +52,7 @@ export const {
   useLazyEmergencySosQuery,
   useCreateEmergencyBookingMutation,
   useLinkEmergencyAmbulanceMutation,
+  useSetEmergencyArrivalModeMutation,
   useCancelEmergencyBookingMutation,
   useEmergencyHistoryQuery,
 } = emergencyApi;

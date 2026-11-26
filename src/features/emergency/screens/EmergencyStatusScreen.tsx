@@ -19,9 +19,10 @@ import { useHospitalQuery } from "../../hospital/api";
 import { addressCoords } from "../../hospital/types";
 import { LocationCard } from "../../location/LocationCard";
 import { useCurrentLocation } from "../../location/useCurrentLocation";
-import { useCancelEmergencyBookingMutation, useEmergencyConditionsQuery, useEmergencyHistoryQuery, useLinkEmergencyAmbulanceMutation } from "../api";
+import { useCancelEmergencyBookingMutation, useEmergencyConditionsQuery, useEmergencyHistoryQuery, useLinkEmergencyAmbulanceMutation, useSetEmergencyArrivalModeMutation } from "../api";
 import { ambulanceDeclined, ambulanceWanted, hospitalRejected } from "../emergencySlice";
-import { toAmbulanceEmergencyType, type EmergencyBooking } from "../types";
+import { startPatientTracking, stopPatientTracking, trackedEmergencyId, type TrackingStart } from "../patientTracking";
+import { toAmbulanceEmergencyType, type ArrivalMode, type EmergencyBooking } from "../types";
 
 const AMB_LIVE: AmbulanceBookingStatus[] = ["SEARCHING", "EN_ROUTE_TO_PICKUP", "ARRIVED", "PICKED_UP", "PAYMENT_PENDING"];
 const AMB_FAILED: AmbulanceBookingStatus[] = ["CANCELLED", "NO_AMBULANCE_FOUND"];
@@ -116,6 +117,47 @@ export default function EmergencyStatusScreen({ navigation, route }: AppScreen<"
   const hospitalFollowing = !!linked && booking?.ambulanceBookingId === linked.id;
   const send = useAction();
   const act = useAction();
+  const choose = useAction();
+
+  // Coming without an Uyir ambulance (another ambulance, or on their own): the hospital follows the
+  // patient's phone instead. From the server, or this phone's earlier "No" if that call never landed.
+  const [setArrivalMode] = useSetEmergencyArrivalModeMutation();
+  const [askAgain, setAskAgain] = useState(false);
+  const selfMode: ArrivalMode | null = askAgain
+    ? null
+    : booking?.arrivalMode === "OTHER_AMBULANCE" || booking?.arrivalMode === "OWN_WAY"
+      ? booking.arrivalMode
+      : declined
+        ? "OWN_WAY"
+        : null;
+  const shareLocation = booking?.status === "ACCEPTED" && !!selfMode && !ambulanceActive;
+  const hospitalLabel = hospital?.hospitalName ?? "the hospital";
+  const [sharing, setSharing] = useState<TrackingStart | null>(null);
+  useEffect(() => {
+    if (!booking) return;
+    let stale = false;
+    if (shareLocation) {
+      startPatientTracking(bookingId, hospitalLabel)
+        .then((r) => !stale && setSharing(r))
+        .catch(() => !stale && setSharing({ started: false, worksWhenLocked: false }));
+    } else {
+      setSharing(null);
+      // Ended, cancelled, or an Uyir ambulance took over: stop sharing this emergency's location.
+      void trackedEmergencyId().then((id) => (id === bookingId ? stopPatientTracking() : undefined));
+    }
+    return () => {
+      stale = true;
+    };
+    // hospitalLabel only names the notification; a change should not restart sharing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!booking, shareLocation, bookingId]);
+
+  const chooseSelf = (mode: Exclude<ArrivalMode, "UYIR_AMBULANCE">) =>
+    choose.run(async () => {
+      setAskAgain(false);
+      dispatch(ambulanceDeclined(bookingId));
+      await setArrivalMode({ id: bookingId, mode }).unwrap();
+    });
 
   if (history.isLoading) return <Loading label="Opening your emergency…" />;
   if (!booking) {
@@ -249,12 +291,36 @@ export default function EmergencyStatusScreen({ navigation, route }: AppScreen<"
           ) : null}
 
           {!ambulanceActive && booking.status === "ACCEPTED" ? (
-            declined ? (
+            selfMode ? (
               <Card style={{ gap: 8 }}>
-                <H2>Going on your own</H2>
-                <Body muted>Head straight to the emergency department and tell them you alerted them through Uyir.</Body>
+                <H2>{selfMode === "OTHER_AMBULANCE" ? "Coming by another ambulance" : "Going on your own"}</H2>
+                <Body muted>
+                  {selfMode === "OTHER_AMBULANCE"
+                    ? `Ask the ambulance crew to take you to ${hospitalName}, emergency department.`
+                    : "Head straight to the emergency department and tell them you alerted them through Uyir."}
+                </Body>
+                {sharing?.started ? (
+                  <Notice tone="green" icon="locate-outline">{`${hospitalName} can see where you are and will be ready when you arrive. Keep your phone's location on.`}</Notice>
+                ) : null}
+                {sharing?.started && !sharing.worksWhenLocked ? (
+                  <Notice tone="amber">{`Your location stops reaching ${hospitalName} when the app is closed. In Settings, set Location to "Always".`}</Notice>
+                ) : null}
+                {sharing && !sharing.started ? (
+                  <>
+                    <Notice tone="amber">{`Allow location so ${hospitalName} can see you are on the way.`}</Notice>
+                    <Button title="Open settings" icon="settings-outline" variant="secondary" small onPress={() => Linking.openSettings()} />
+                  </>
+                ) : null}
                 <Button title="Directions to hospital" icon="navigate-outline" onPress={directions} />
-                <Button title="I need an ambulance after all" icon="car-outline" variant="dangerOutline" onPress={() => dispatch(ambulanceWanted(bookingId))} />
+                <Button
+                  title="Book an Uyir ambulance instead"
+                  icon="car-outline"
+                  variant="dangerOutline"
+                  onPress={() => {
+                    setAskAgain(true);
+                    dispatch(ambulanceWanted(bookingId));
+                  }}
+                />
               </Card>
             ) : (
               <QuestionCard icon="car-outline" tone="red" title={linked ? "Send another ambulance?" : "Do you need an ambulance?"} subtitle={`The nearest free driver picks you up and takes you to ${hospitalName}. You pay once a driver accepts; then you get the pickup OTP.`}>
@@ -262,7 +328,10 @@ export default function EmergencyStatusScreen({ navigation, route }: AppScreen<"
                 <OptionCards label="Ambulance type (optional)" hint="Not sure? Skip it. We'll send what's nearest." options={TYPE_OPTIONS.filter((o) => o.value !== "TRANSPORT")} value={ambType} onChange={setAmbType} allowDeselect />
                 {send.error ? <ErrorBox message={send.error} /> : null}
                 <Button title="Yes, send an ambulance" icon="alert-circle" variant="danger" onPress={sendAmbulance} loading={send.busy} disabled={!loc.place} />
-                <Button title="No, I'll go on my own" variant="ghost" onPress={() => dispatch(ambulanceDeclined(bookingId))} />
+                <Button title="I've called another ambulance (108 / private)" icon="call-outline" variant="dangerOutline" onPress={() => chooseSelf("OTHER_AMBULANCE")} loading={choose.busy} />
+                <Button title="No, I'll go on my own" variant="ghost" onPress={() => chooseSelf("OWN_WAY")} disabled={choose.busy} />
+                {choose.error ? <ErrorBox message={choose.error} /> : null}
+                <Body muted>{`Without an Uyir ambulance, your phone shares your live location with ${hospitalName} until your emergency ends.`}</Body>
               </QuestionCard>
             )
           ) : null}
