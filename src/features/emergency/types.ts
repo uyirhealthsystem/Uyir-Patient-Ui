@@ -38,7 +38,19 @@ export interface EmergencyBooking {
   cancelledAt?: string | null;
   cancellationReason?: string | null;
   completedAt?: string | null;
+  /** The ambulance bringing the patient, once the patient has linked it (PATCH {id}/ambulance). */
+  ambulanceBookingId?: string | null;
+  /** How the patient is getting there (PATCH {id}/arrival-mode). Null until the patient says. */
+  arrivalMode?: ArrivalMode | null;
+  /** When the patient's phone last sent its location to the hospital (null if never). */
+  patientLocationUpdatedAt?: string | null;
 }
+
+/**
+ * UYIR_AMBULANCE: booked in the app; the hospital follows the ambulance.
+ * OTHER_AMBULANCE (108, private) / OWN_WAY: the hospital follows the patient's phone.
+ */
+export type ArrivalMode = "UYIR_AMBULANCE" | "OTHER_AMBULANCE" | "OWN_WAY";
 
 // The ambulance service has 6 emergency types; the hospital has 16 conditions.
 // Each condition maps to the type that best tells the crew what to bring.

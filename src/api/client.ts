@@ -34,7 +34,9 @@ function toApiError(status: number, data: any): ApiError {
   return new ApiError(status, "ERROR", `Request failed (${status}).`);
 }
 
-// ── Session hooks, wired up by AuthContext ──────────────────────────────────
+// ── Session hooks, wired up in app/store.ts from the Redux auth slice ───────
+// (configured there rather than importing the store here, which would be a
+// circular import: store.ts -> client.ts -> store.ts.)
 export type SessionUser = {
   id?: string | null;
   role?: string | null;

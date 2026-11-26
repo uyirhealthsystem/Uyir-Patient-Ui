@@ -37,12 +37,24 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Uyir uses your location to find nearby hospitals, emergency care and to send an ambulance to you."
+          "locationWhenInUsePermission": "Uyir uses your location to find nearby hospitals, emergency care and to send an ambulance to you.",
+          "locationAlwaysAndWhenInUsePermission": "During an emergency, Uyir shares your location with the hospital that accepted you, even when the app is closed, so the emergency team is ready when you arrive. Sharing stops when the emergency ends.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
       "./plugins/withCmakeVersion",
       "expo-font",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true,
+            "extraProguardRules": "# WorkManager (pulled in by react-native-maps) loads Room's generated WorkDatabase_Impl by name at startup.\n# Without these, R8 strips/rewrites it and the release app crashes on launch.\n-keep class androidx.work.** { *; }\n-keep class androidx.room.** { *; }\n-keep class * extends androidx.room.RoomDatabase { *; }"
+          }
+        }
+      ]
     ]
   }
 }

@@ -1,11 +1,7 @@
 import type { NavigatorScreenParams } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import type {
- 
-  LabScanAppointmentMode,
-  LabScanAppointmentType,
-  LoginChallenge,
-} from "../features/auth/types";
+import type { LabScanAppointmentMode, LabScanAppointmentType } from "../api/types";
+import type { LoginChallenge } from "../features/auth/types";
 import type { FamilyMember } from "../features/profile/types";
 import type { MedicalKind } from "../features/records/api";
 

@@ -39,13 +39,25 @@ export interface Hospital {
   ownershipType?: string;
   address: Address;
   contactDetails: ContactDetails;
-  facilities?: { specialtyDepartments?: string[]; bedCapacity?: Record<string, number> };
+  facilities?: {
+    specialtyDepartments?: string[];
+    bedCapacity?: Record<string, number>;
+    diagnosticUnits?: { lab?: boolean; scanCentre?: boolean; pathology?: boolean };
+  };
   emergencyServices?: {
     handlesEmergencies: boolean;
     ambulanceAvailable: boolean;
     ambulance24x7Available?: boolean;
+    ambulanceTypes?: string[];
     specialtyEmergencyConditionsHandled?: string[];
   };
+  operations?: {
+    hospitalInsured?: boolean;
+    dedicatedPharmacyAvailable?: boolean;
+    empanelledInsuranceCompanies?: string[];
+    scansAvailable?: { usg?: boolean; xray?: boolean; ct?: boolean; mri?: boolean; other?: string[] };
+  };
+  surgicalNetwork?: { operationTheatreCount?: number; endoscopyAvailable?: boolean; laparoscopyUnitsAvailable?: boolean };
   active: boolean;
 }
 

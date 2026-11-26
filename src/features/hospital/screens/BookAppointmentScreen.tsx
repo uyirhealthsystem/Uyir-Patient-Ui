@@ -4,13 +4,13 @@ import { useFamilyQuery } from "../../profile/api";
 import { useAvailabilityQuery, useBookAppointmentMutation, useDoctorQuery, useHospitalQuery } from "../api";
 import type { Gender } from "../../profile/types";
 import { useAuth } from "../../auth/useAuth";
-import { atTime, dateTime, money, nextDays, TIME_SLOTS, ymd } from "../../../lib/format";
+import { atTime, dateTime, money, nextDays, ymd } from "../../../lib/format";
 import { useAction, useScreenQuery } from "../../../lib/hooks";
 import { peopleFrom, toBookingRelationship } from "../../../lib/people";
 import type { AppScreen } from "../../../navigation/types";
 import { Body, Button, Card, ErrorBox, H2, KV, Loading, Notice, Row, Screen, humanize } from "../../../ui/components";
-import { DayStrip, MultiChips, PersonPicker, Segmented, TimeSlots, time12 } from "../../../ui/form";
-import { GENDER_OPTIONS, IconChoice, PhoneField, QuestionCard, TextField } from "../../../ui/pickers";
+import { DayStrip, MultiChips, PersonPicker, Segmented } from "../../../ui/form";
+import { DateField, GENDER_OPTIONS, IconChoice, PhoneField, QuestionCard, TextField } from "../../../ui/pickers";
 
 export default function BookAppointmentScreen({ navigation, route }: AppScreen<"BookAppointment">) {
   const { hospitalId, doctorId } = route.params;
@@ -30,7 +30,11 @@ export default function BookAppointmentScreen({ navigation, route }: AppScreen<"
   const days = useMemo(() => nextDays(14), []);
   const [personKey, setPersonKey] = useState("self");
   const [day, setDay] = useState(days[0]);
-  const [slot, setSlot] = useState<string | null>(null);
+  // The strip shows the next 14 days; the calendar reaches 3 months out. A date
+  // picked from the calendar joins the strip so the choice stays visible.
+  const lastBookableDay = useMemo(() => nextDays(1, 90)[0], []);
+  const inStrip = days.some((d) => d.getTime() === day.getTime());
+  const stripDays = useMemo(() => (inStrip ? days : [...days, day]), [days, day, inStrip]);
   const [visitType, setVisitType] = useState<"NEW" | "FOLLOW_UP">("NEW");
   const [reason, setReason] = useState("");
   const [symptoms, setSymptoms] = useState<string[]>([]);
@@ -55,20 +59,18 @@ export default function BookAppointmentScreen({ navigation, route }: AppScreen<"
   if (ctx.error || !ctx.data) return <Screen><ErrorBox message={ctx.error ?? "Not found"} onRetry={ctx.refresh} /></Screen>;
   const { hospital, doctor } = ctx.data;
   const fee = doctor.hospitalAssociations?.find((a) => a.hospitalId === hospitalId)?.consultationFee ?? doctor.consultationFee;
-  const now = Date.now();
-  const slots = TIME_SLOTS.filter((t) => atTime(day, t).getTime() > now + 30 * 60_000);
-
   const knownAge = person?.age != null;
   const knownGender = !!person?.gender;
 
   const submit = () => {
     if (!person) return setError("Choose who the appointment is for.");
-    if (!slot) return setError("Pick a time for the visit.");
     const ageNum = Number(age);
     if (!age || !Number.isInteger(ageNum) || ageNum < 0 || ageNum > 130) return setError("Enter the patient's age.");
     if (!gender) return setError("Choose the patient's gender.");
     if (!/^[6-9]\d{9}$/.test(phone)) return setError("Enter a valid 10-digit mobile number.");
-    const when = atTime(day, slot);
+    // Token booking: the patient picks only the day. The API still needs a time,
+    // so send when the doctor's day starts (or now, if that has passed today).
+    const when = new Date(Math.max(atTime(day, startOfDay(doctor.availability?.customTimings)).getTime(), Date.now() + 60_000));
     const allSymptoms = [...symptoms, ...otherSymptoms.split(",").map((x) => x.trim()).filter(Boolean)];
     run(async () => {
       const appt = await bookAppointment({
@@ -97,17 +99,17 @@ export default function BookAppointmentScreen({ navigation, route }: AppScreen<"
   };
 
   const full = availability?.available === false;
-  const summary = slot ? `${day.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })} · ${time12(slot)}` : null;
+  const summary = day.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
 
   return (
     <Screen
       footer={
         <Button
-          title={full ? "Fully booked on this day" : summary ? `Book for ${summary}` : "Pick a time to book"}
+          title={full ? "Fully booked on this day" : `Book for ${summary}`}
           icon="checkmark-circle-outline"
           onPress={submit}
           loading={busy}
-          disabled={full || !slot}
+          disabled={full}
         />
       }
     >
@@ -116,7 +118,6 @@ export default function BookAppointmentScreen({ navigation, route }: AppScreen<"
         <Body muted>{doctor.specialties?.join(", ")}</Body>
         <KV k="Hospital" v={hospital.hospitalName} />
         <KV k="Consultation fee" v={money(fee)} />
-        <KV k="Timings" v={doctor.availability?.customTimings} />
       </Card>
 
       <PersonPicker
@@ -126,14 +127,25 @@ export default function BookAppointmentScreen({ navigation, route }: AppScreen<"
         onAdd={() => navigation.navigate("FamilyMemberForm", {})}
       />
 
-      <QuestionCard icon="calendar-outline" title="When?" subtitle="Pick a day, then a time.">
-        <DayStrip days={days} value={day} onChange={(d) => { setDay(d); setSlot(null); }} />
+      <QuestionCard icon="calendar-outline" title="Which day?" subtitle="Pick a day, or choose any date in the calendar. You get a token number for that day.">
+        <DayStrip days={stripDays} value={day} onChange={setDay} />
+        <DateField
+          label="Or choose another date"
+          value={inStrip ? "" : ymd(day)}
+          onChange={(iso) => {
+            if (!iso) return;
+            const [y, m, d] = iso.split("-").map(Number);
+            setDay(new Date(y, m - 1, d));
+          }}
+          minDate={days[0]}
+          maxDate={lastBookableDay}
+          placeholder="Open calendar"
+        />
         {availability && availability.tokenLimit != null ? (
           <Notice tone={availability.available ? "green" : "red"}>
             {availability.available ? `${availability.remainingTokens} of ${availability.tokenLimit} tokens left for this day.` : "Fully booked for this day — pick another date."}
           </Notice>
         ) : null}
-        <TimeSlots slots={slots} value={slot} onChange={setSlot} />
       </QuestionCard>
 
       <QuestionCard icon="medkit-outline" tone="violet" title="About the visit" optional>
@@ -169,6 +181,15 @@ export default function BookAppointmentScreen({ navigation, route }: AppScreen<"
       {error ? <ErrorBox message={error} /> : null}
     </Screen>
   );
+}
+
+/** "Mon-Fri 10am-1pm" -> "10:00"; "9:30 AM - 5 PM" -> "09:30". Falls back to 09:00. */
+function startOfDay(timings?: string): string {
+  const m = timings?.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
+  if (!m) return "09:00";
+  let h = Number(m[1]) % 12;
+  if (m[3].toLowerCase() === "pm") h += 12;
+  return `${String(h).padStart(2, "0")}:${m[2] ?? "00"}`;
 }
 
 const SYMPTOMS = ["Fever", "Cough", "Cold", "Headache", "Body pain", "Stomach pain", "Vomiting", "Breathlessness", "Chest pain", "Dizziness", "Skin rash"];

@@ -14,6 +14,7 @@ import { colors, font } from "../../../ui/theme";
 import { useRefreshPaymentMutation } from "../../payments/api";
 import { openCheckout } from "../../payments/checkout";
 import { useCancelAmbulanceMutation, usePayAmbulanceMutation, useTrackAmbulanceQuery } from "../api";
+import { AmbulanceMap } from "../components/AmbulanceMap";
 import { PAY_BEFORE_PICKUP, paymentDue, type AmbulanceBookingStatus } from "../types";
 
 const LIVE: AmbulanceBookingStatus[] = ["SEARCHING", "EN_ROUTE_TO_PICKUP", "ARRIVED", "PICKED_UP"];
@@ -89,6 +90,9 @@ export default function AmbulanceDetailScreen({ route }: AppScreen<"AmbulanceDet
       <Title>{b.type === "EMERGENCY" ? `Emergency · ${humanize(b.emergencyType ?? "OTHER")}` : "Scheduled ride"}</Title>
       <Badge label={humanize(b.status)} tone={statusTone(b.status)} />
       {STATUS_TEXT[b.status] ? <Notice tone={statusTone(b.status)}>{STATUS_TEXT[b.status]}</Notice> : null}
+
+      {/* Live map once a driver is on the way; refreshed by the 5 s polling above. */}
+      {driver && LIVE.includes(b.status) ? <AmbulanceMap track={data} /> : null}
 
       {/* Pay first: the OTP appears once the payment is confirmed. */}
       {due ? (
