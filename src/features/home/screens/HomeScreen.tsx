@@ -1,7 +1,7 @@
 import { useNavigation } from "@react-navigation/native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-// Book care tiles and the "Call an ambulance now" button are hidden while we
-// build out the Emergency SOS module first; they come back feature by feature.
+// Only Emergency SOS, Hospital appointment and Lab & Scan are shown while we build features one by
+// one; the other Book care tiles and "Call an ambulance now" come back later.
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../auth/useAuth";
 import { ActiveEmergencyBanner } from "../../emergency/components/ActiveEmergencyBanner";
@@ -60,6 +60,12 @@ export default function HomeScreen() {
             <Ionicons name="arrow-forward" size={16} color={colors.danger} />
           </View>
         </Pressable>
+
+        <SectionTitle title="Book care" />
+        <View style={s.grid}>
+          <Tile icon="business-outline" title="Hospital appointment" subtitle="Nearby, by name or district" onPress={() => nav.navigate("Hospitals")} />
+          <Tile icon="flask-outline" title="Lab & Scan" subtitle="Tests and imaging" tone="violet" onPress={() => nav.navigate("LabScan")} />
+        </View>
 
         <SectionTitle title="My health" />
         <View style={s.grid}>

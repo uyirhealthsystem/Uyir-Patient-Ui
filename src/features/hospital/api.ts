@@ -20,6 +20,9 @@ export const hospitalApi = baseApi.injectEndpoints({
     nearbyHospitals: b.query<Hospital[], { latitude: number; longitude: number; radiusKm?: number }>({
       query: ({ radiusKm = 10, ...q }) => ({ url: "/api/v1/hospital/nearby", params: { ...q, radiusKm } }),
     }),
+    hospitalsByDistrict: b.query<Hospital[], string>({
+      query: (district) => ({ url: `/api/v1/hospital/district/${encodeURIComponent(district)}`, params: { active: true } }),
+    }),
     hospital: b.query<Hospital, string>({
       query: (id) => ({ url: `/api/v1/hospital/${id}` }),
     }),
@@ -62,6 +65,8 @@ export const hospitalApi = baseApi.injectEndpoints({
 export const {
   useLazySearchHospitalsQuery,
   useLazyNearbyHospitalsQuery,
+  useSearchHospitalsQuery,
+  useLazyHospitalsByDistrictQuery,
   useHospitalQuery,
   useSpecialtiesQuery,
   useDoctorQuery,

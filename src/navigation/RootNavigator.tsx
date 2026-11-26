@@ -124,7 +124,7 @@ export default function RootNavigator() {
       ) : (
         <AppStack.Navigator screenOptions={header}>
           <AppStack.Screen name="Tabs" component={Tabs} options={{ headerShown: false }} />
-          <AppStack.Screen name="Hospitals" component={HospitalsScreen} options={{ title: "Hospitals" }} />
+          <AppStack.Screen name="Hospitals" component={HospitalsScreen} options={{ title: "Hospital appointment" }} />
           <AppStack.Screen name="HospitalDetail" component={HospitalDetailScreen} options={{ title: "Hospital" }} />
           <AppStack.Screen name="Doctors" component={DoctorsScreen} options={{ title: "Find a doctor" }} />
           <AppStack.Screen name="BookAppointment" component={BookAppointmentScreen} options={{ title: "Book appointment" }} />
