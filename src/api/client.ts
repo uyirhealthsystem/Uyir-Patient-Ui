@@ -1,6 +1,4 @@
-import { store } from "../app/store";
 import { API_BASE_URL } from "../config";
-import { refreshAccessToken } from "../services/baseApi";
 
 export class ApiError extends Error {
   constructor(
@@ -36,20 +34,27 @@ function toApiError(status: number, data: any): ApiError {
   return new ApiError(status, "ERROR", `Request failed (${status}).`);
 }
 
-// ── Session: the signed-in user's token from the Redux auth slice ───────────
-// (Before this, nothing ever configured the session, so every Lab & Scan call went
-// out without a token and the gateway answered 401.)
+// ── Session hooks, wired up in app/store.ts from the Redux auth slice ───────
+// (configured there rather than importing the store here, which would be a
+// circular import: store.ts -> client.ts -> store.ts.)
+export type SessionUser = {
+  id?: string | null;
+  role?: string | null;
+};
+
 type SessionHooks = {
   getAccessToken: () => string | null;
   refresh: () => Promise<string | null>; // returns a new access token, or null when the session is gone
+  getUser?: () => SessionUser | null | undefined;
 };
-let hooks: SessionHooks = {
-  getAccessToken: () => store.getState().auth.accessToken,
-  // Shared with RTK Query, so the two never rotate the refresh token at the same time.
-  refresh: () => refreshAccessToken(store.dispatch),
-};
+
+let hooks: SessionHooks = { getAccessToken: () => null, refresh: async () => null };
 export function configureSession(h: SessionHooks) {
-  hooks = h;
+  hooks = { ...hooks, ...h };
+}
+
+export function getSessionUser(): SessionUser | null | undefined {
+  return hooks.getUser?.();
 }
 
 // One refresh at a time, however many requests hit 401 together.
@@ -82,6 +87,12 @@ async function send(method: string, path: string, opts: RequestOptions, token: s
   const headers: Record<string, string> = { Accept: "application/json", ...opts.headers };
   if (opts.body !== undefined) headers["Content-Type"] = "application/json";
   if (token) headers.Authorization = `Bearer ${token}`;
+
+  console.log("[API REQUEST]", method, path, {
+    hasToken: Boolean(token),
+    headers,
+  });
+
   try {
     return await fetch(buildUrl(path, opts.query), {
       method,
