@@ -29,7 +29,8 @@ export type AppStackParams = {
   AmbulanceBook: { mode?: "EMERGENCY" | "SCHEDULED" } | undefined;
   AmbulanceDetail: { id: string };
   // Home-based care
-  HomeCare: undefined;
+  /** careType opens that tab (Home screen has a tile per type). */
+  HomeCare: { careType?: "NURSE" | "PHYSIO" | "CARETAKER" } | undefined;
   HomeCareBook: { serviceId: string };
   HomeCareDetail: { id: string };
   // Lab & Scan / patient sample collection

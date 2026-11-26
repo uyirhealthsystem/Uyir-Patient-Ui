@@ -1,6 +1,6 @@
 import { useNavigation } from "@react-navigation/native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-// Only Emergency SOS, Hospital appointment and Lab & Scan are shown while we build features one by
+// Only Emergency SOS, Hospital appointment, Lab & Scan and Home care (nurse / physio / caretaker) are shown while we build features one by
 // one; the other Book care tiles and "Call an ambulance now" come back later.
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../auth/useAuth";
@@ -65,6 +65,13 @@ export default function HomeScreen() {
         <View style={s.grid}>
           <Tile icon="business-outline" title="Hospital appointment" subtitle="Nearby, by name or district" onPress={() => nav.navigate("Hospitals")} />
           <Tile icon="flask-outline" title="Lab & Scan" subtitle="Tests and imaging" tone="violet" onPress={() => nav.navigate("LabScan")} />
+        </View>
+
+        <SectionTitle title="Home care" />
+        <View style={s.grid}>
+          <Tile icon="medkit-outline" title="Home nurse" subtitle="Injections, drips, wound care" tone="green" onPress={() => nav.navigate("HomeCare", { careType: "NURSE" })} />
+          <Tile icon="body-outline" title="Physiotherapy" subtitle="Recovery and pain relief" tone="blue" onPress={() => nav.navigate("HomeCare", { careType: "PHYSIO" })} />
+          <Tile icon="people-outline" title="Caretaker" subtitle="Daily help, elderly care" tone="amber" onPress={() => nav.navigate("HomeCare", { careType: "CARETAKER" })} />
         </View>
 
         <SectionTitle title="My health" />

@@ -9,11 +9,12 @@ import { geocode, getCurrentPosition, reverseGeocode, useAction, useScreenQuery,
 import { peopleFrom } from "../../../lib/people";
 import { DISTRICT_OPTIONS } from "../../../lib/places";
 import type { AppScreen } from "../../../navigation/types";
-import { Body, Button, Card, ErrorBox, H2, KV, Loading, Notice, Row, Screen, humanize } from "../../../ui/components";
+import { Body, Button, Card, ErrorBox, H2, IconBox, Ionicons, Loading, Notice, Row, Screen, humanize, type IconName } from "../../../ui/components";
 import { DayStrip, PersonPicker, TimeSlots, time12 } from "../../../ui/form";
 import { PhoneField, QuestionCard, SelectField, TextField } from "../../../ui/pickers";
 import { space } from "../../../ui/theme";
 
+const SERVICE_ICON: Record<string, IconName> = { NURSE: "medkit-outline", PHYSIO: "body-outline", CARETAKER: "people-outline" };
 const DOSAGES = ["1 tablet", "250 mg", "500 mg", "5 ml"];
 const FREQUENCIES = ["Once a day", "Twice a day", "3 times a day", "At bedtime"];
 const DURATIONS = ["3 days", "5 days", "7 days", "1 month"];
@@ -105,11 +106,21 @@ export default function HomeCareBookScreen({ navigation, route }: AppScreen<"Hom
 
   return (
     <Screen footer={<Button title={summary ? `Request visit · ${summary}` : "Pick a time to continue"} icon="home-outline" onPress={submit} loading={book.busy} disabled={!slot} />}>
-      <Card>
-        <H2>{service.name}</H2>
-        <Row style={{ gap: space.lg }}>
-          <KV k="Duration" v={`${service.durationMinutes} min`} />
-          <KV k="Price" v={money(service.price)} />
+      <Card style={{ gap: 12 }}>
+        <Row style={{ gap: 12, alignItems: "flex-start" }}>
+          <IconBox icon={SERVICE_ICON[service.careType] ?? "home-outline"} tone="green" size={46} />
+          <View style={{ flex: 1, gap: 3 }}>
+            <H2>{service.name}</H2>
+            {service.description ? <Body muted>{service.description}</Body> : null}
+          </View>
+        </Row>
+        <Row style={{ gap: space.lg, borderTopWidth: 1, borderTopColor: "#E2E8F0", paddingTop: 10 }}>
+          <Row style={{ gap: 5 }}>
+            <Ionicons name="time-outline" size={16} color="#66758B" />
+            <Body>{service.durationMinutes} min visit</Body>
+          </Row>
+          <View style={{ flex: 1 }} />
+          <Body style={{ fontSize: 18, fontWeight: "800" }}>{money(service.price)}</Body>
         </Row>
       </Card>
 
